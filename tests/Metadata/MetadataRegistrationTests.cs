@@ -1,6 +1,6 @@
 using NUnit.Framework;
 using Autofac;
-using Autofac.Features.Meta;
+using Autofac.Features.Metadata;
 
 namespace Csanno.Tests;
 
