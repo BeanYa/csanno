@@ -63,6 +63,14 @@ jobs:
           fi
           echo "包文件验证成功"
 
+      - name: 调试 API Key
+        run: |
+          if [ -z "${{ secrets.NUGET_API_KEY }}" ]; then
+            echo "错误: NUGET_API_KEY secret 未设置"
+            exit 1
+          fi
+          echo "API Key 已配置（长度: ${#NUGET_API_KEY} 字符）"
+
       - name: 发布到 NuGet.org
         run: |
           PACKAGE_PATH=$(find src/bin/Release -name "*.nupkg" | grep -v ".snupkg" | head -n 1)
