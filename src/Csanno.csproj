@@ -11,12 +11,16 @@
     <PackageId>Csanno</PackageId>
     <Version>0.1.0</Version>
     <Authors>Csanno Contributors</Authors>
-    <Description>C# 类库 (SDK)</Description>
+    <Description>C# 类库 (SDK) - 提供 Autofac 注解式组件注册功能</Description>
 
     <!-- 代码分析 -->
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Autofac" Version="8.0.0" />
+  </ItemGroup>
 
 </Project>

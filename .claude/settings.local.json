@@ -4,7 +4,11 @@
       "Bash(dotnet build:*)",
       "Bash(dotnet test:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(openspec-cn list:*)",
+      "Bash(openspec-cn validate:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(openspec-cn show:*)"
     ]
   }
 }
