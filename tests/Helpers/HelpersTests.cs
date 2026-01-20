@@ -1,6 +1,6 @@
 using NUnit.Framework;
 
-namespace Csanno.Tests;
+namespace Csanno.Tests.Helpers;
 
 [TestFixture]
 public class HelpersTests
