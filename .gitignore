@@ -14,3 +14,14 @@ $RECYCLE.BIN/
 # OS
 .DS_Store
 .opencode/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.lock.json
+.project
+.vs/
+TestResults/
