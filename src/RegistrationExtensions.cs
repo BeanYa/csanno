@@ -96,7 +96,10 @@ public static class RegistrationExtensions
             registrationBuilder.As(serviceType);
         }
 
-        // 元数据支持暂时跳过
-        // if (registration.Metadata is not null) { ... }
+        // 应用元数据
+        if (registration.Metadata is not null && registration.Metadata.Count > 0)
+        {
+            registrationBuilder.WithMetadata(registration.Metadata);
+        }
     }
 }

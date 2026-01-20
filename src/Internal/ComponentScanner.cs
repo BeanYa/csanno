@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Linq;
 using Csanno.Attributes;
 
 namespace Csanno.Internal;
@@ -65,11 +66,14 @@ internal static class ComponentScanner
         // 解析服务类型
         var serviceTypes = ResolveServiceTypes(type, componentAttr);
 
+        // 解析元数据
+        var metadata = ResolveMetadata(type);
+
         registration = new ComponentRegistration(
             ComponentType: type,
             Lifetime: lifetime,
             ServiceTypes: serviceTypes,
-            Metadata: componentAttr.Metadata,
+            Metadata: metadata,
             LifetimeScopeTags: lifetimeScopeTags,
             OwnedType: ownedType
         );
@@ -194,5 +198,25 @@ internal static class ComponentScanner
 
         // 4. 默认使用类本身
         return [type];
+    }
+
+    /// <summary>
+    /// 解析元数据
+    /// </summary>
+    private static IDictionary<string, object?>? ResolveMetadata(Type type)
+    {
+        var metadataAttrs = type.GetCustomAttributes<WithMetadataAttribute>();
+        if (!metadataAttrs.Any())
+        {
+            return null;
+        }
+
+        var metadata = new Dictionary<string, object?>();
+        foreach (var attr in metadataAttrs)
+        {
+            metadata[attr.Key] = attr.Value;
+        }
+
+        return metadata;
     }
 }
