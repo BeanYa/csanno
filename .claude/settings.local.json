@@ -10,7 +10,10 @@
       "Bash(dotnet restore:*)",
       "Bash(openspec-cn show:*)",
       "Bash(git config:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(dotnet new:*)",
+      "Bash(dotnet sln add:*)",
+      "Bash(dotnet sln:*)"
     ]
   }
 }
