@@ -70,7 +70,7 @@ jobs:
           echo "发布包: $PACKAGE_PATH"
           echo "发布符号: $SYMBOL_PATH"
           dotnet nuget push "$PACKAGE_PATH" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
-          dotnet nuget push "$SYMBOL_PATH" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+          dotnet nuget push "$SYMBOL_PATH" --api-key ${{ secrets.NUGET_API_KEY }} --symbol-source https://nuget.smbsrc.net --skip-duplicate
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
