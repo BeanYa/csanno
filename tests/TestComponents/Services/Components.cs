@@ -1,6 +1,6 @@
 using Csanno.Attributes;
 
-namespace Csanno.Tests.TestComponents.Services;
+namespace Csanno.Tests;
 
 /// <summary>
 /// 服务接口

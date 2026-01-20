@@ -1,9 +1,7 @@
 using NUnit.Framework;
 using Autofac;
-using Csanno.Tests.Fixtures;
-using Csanno.Tests.TestComponents.Services;
 
-namespace Csanno.Tests.Services;
+namespace Csanno.Tests;
 
 /// <summary>
 /// 服务接口映射测试

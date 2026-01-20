@@ -1,7 +1,6 @@
 using Csanno.Attributes;
-using Csanno.Tests.TestComponents.Services;
 
-namespace Csanno.Tests.TestComponents.Dependencies;
+namespace Csanno.Tests;
 
 /// <summary>
 /// 消费者组件，依赖 IService

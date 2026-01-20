@@ -1,6 +1,6 @@
 using Csanno.Attributes;
 
-namespace Csanno.Tests.TestComponents.Metadata;
+namespace Csanno.Tests;
 
 /// <summary>
 /// 带元数据的组件接口

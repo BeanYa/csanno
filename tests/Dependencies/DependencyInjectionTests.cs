@@ -1,9 +1,7 @@
 using NUnit.Framework;
 using Autofac;
-using Csanno.Tests.Fixtures;
-using Csanno.Tests.TestComponents.Dependencies;
 
-namespace Csanno.Tests.Dependencies;
+namespace Csanno.Tests;
 
 /// <summary>
 /// 依赖注入测试

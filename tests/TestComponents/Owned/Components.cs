@@ -1,6 +1,6 @@
 using Csanno.Attributes;
 
-namespace Csanno.Tests.TestComponents.Owned;
+namespace Csanno.Tests;
 
 /// <summary>
 /// Owned 实例组件

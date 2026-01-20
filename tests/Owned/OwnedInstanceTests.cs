@@ -1,10 +1,8 @@
 using NUnit.Framework;
 using Autofac;
 using Autofac.Features.OwnedInstances;
-using Csanno.Tests.Fixtures;
-using Csanno.Tests.TestComponents.Owned;
 
-namespace Csanno.Tests.Owned;
+namespace Csanno.Tests;
 
 /// <summary>
 /// Owned 实例测试

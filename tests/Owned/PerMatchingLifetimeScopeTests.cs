@@ -1,9 +1,7 @@
 using NUnit.Framework;
 using Autofac;
-using Csanno.Tests.Fixtures;
-using Csanno.Tests.TestComponents.Owned;
 
-namespace Csanno.Tests.Owned;
+namespace Csanno.Tests;
 
 /// <summary>
 /// PerMatchingLifetimeScope 测试

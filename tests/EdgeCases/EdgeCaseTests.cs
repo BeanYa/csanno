@@ -1,9 +1,7 @@
 using NUnit.Framework;
 using Autofac;
-using Csanno.Tests.Fixtures;
-using Csanno.Tests.TestComponents.EdgeCases;
 
-namespace Csanno.Tests.EdgeCases;
+namespace Csanno.Tests;
 
 /// <summary>
 /// 边界情况测试

@@ -1,10 +1,8 @@
 using NUnit.Framework;
 using Autofac;
 using Autofac.Features.Meta;
-using Csanno.Tests.Fixtures;
-using Csanno.Tests.TestComponents.Metadata;
 
-namespace Csanno.Tests.Metadata;
+namespace Csanno.Tests;
 
 /// <summary>
 /// 元数据注册测试

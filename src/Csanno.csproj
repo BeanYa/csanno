@@ -6,21 +6,51 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
     <!-- 包信息 -->
     <PackageId>Csanno</PackageId>
     <Version>0.1.0</Version>
     <Authors>Csanno Contributors</Authors>
     <Description>C# 类库 (SDK) - 提供 Autofac 注解式组件注册功能</Description>
+    <PackageTags>autofac;di;ioc;dependency-injection;attributes;annotations;spring</PackageTags>
+    <PackageReleaseNotes>https://github.com/BeanYa/csanno/releases</PackageReleaseNotes>
+
+    <!-- 包仓库信息 -->
+    <PackageProjectUrl>https://github.com/BeanYa/csanno</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/BeanYa/csanno</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+
+    <!-- 许可证 -->
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!-- 符号包配置 -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+
+    <!-- 发布配置 -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedAllSources>true</EmbedAllSources>
+    <Deterministic>true</Deterministic>
 
     <!-- 代码分析 -->
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+
+    <!-- 隐藏符号 -->
+    <NoWarn>CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Autofac" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 将 README.md 包含在包中 -->
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

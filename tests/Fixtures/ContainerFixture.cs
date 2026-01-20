@@ -1,6 +1,6 @@
 using Autofac;
 
-namespace Csanno.Tests.Fixtures;
+namespace Csanno.Tests;
 
 /// <summary>
 /// 容器构建共享辅助类

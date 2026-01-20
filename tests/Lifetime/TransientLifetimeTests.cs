@@ -1,9 +1,7 @@
 using NUnit.Framework;
 using Autofac;
-using Csanno.Tests.Fixtures;
-using Csanno.Tests.TestComponents.Lifetime;
 
-namespace Csanno.Tests.Lifetime;
+namespace Csanno.Tests;
 
 /// <summary>
 /// Transient 生命周期测试

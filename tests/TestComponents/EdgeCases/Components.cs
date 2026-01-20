@@ -1,6 +1,6 @@
 using Csanno.Attributes;
 
-namespace Csanno.Tests.TestComponents.EdgeCases;
+namespace Csanno.Tests;
 
 /// <summary>
 /// 抽象组件
