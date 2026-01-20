@@ -37,13 +37,13 @@ jobs:
           echo "version=$VERSION"
 
       - name: 还原依赖
-        run: dotnet restore
+        run: dotnet restore src/Csanno.csproj
 
       - name: 构建
-        run: dotnet build --configuration Release --no-restore
+        run: dotnet build src/Csanno.csproj --configuration Release --no-restore
 
       - name: 运行测试
-        run: dotnet test --configuration Release --no-build --verbosity normal
+        run: dotnet test tests/Csanno.Tests.csproj --configuration Release --no-build --verbosity normal
 
       - name: 打包
         run: |
