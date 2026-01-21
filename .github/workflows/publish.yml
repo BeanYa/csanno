@@ -78,8 +78,7 @@ jobs:
           SYMBOL_PATH=$(find src/bin/Release -name "*.snupkg" | head -n 1)
           echo "发布包: $PACKAGE_PATH"
           echo "发布符号: $SYMBOL_PATH"
-          dotnet nuget push "$PACKAGE_PATH" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_API_KEY }} --skip-duplicate
-          dotnet nuget push "$SYMBOL_PATH" -ss https://nuget.smbsrc.net -sk ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+          dotnet nuget push "$PACKAGE_PATH" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_API_KEY }} -ss https://nuget.smbsrc.net --skip-duplicate
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
