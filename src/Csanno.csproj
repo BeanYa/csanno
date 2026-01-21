@@ -10,7 +10,7 @@
 
     <!-- 包信息 -->
     <PackageId>Csanno</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.0.1</Version>
     <Authors>Csanno Contributors</Authors>
     <Description>C# 类库 (SDK) - 提供 Autofac 注解式组件注册功能</Description>
     <PackageTags>autofac;di;ioc;dependency-injection;attributes;annotations;spring</PackageTags>
