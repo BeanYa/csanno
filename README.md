@@ -251,8 +251,7 @@ Csanno/
 │   ├── Metadata/            # 元数据测试
 │   ├── Owned/               # Owned 实例测试
 │   ├── Dependencies/        # 依赖注入测试
-│   ├── EdgeCases/           # 边界情况测试
-│   └── Helpers/             # 辅助工具测试
+│   └── EdgeCases/           # 边界情况测试
 └── openspec/                # OpenSpec 规范文档
 ```
 

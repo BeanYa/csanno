@@ -13,7 +13,10 @@
       "Bash(git push:*)",
       "Bash(dotnet new:*)",
       "Bash(dotnet sln add:*)",
-      "Bash(dotnet sln:*)"
+      "Bash(dotnet sln:*)",
+      "Bash(openspec-cn new:*)",
+      "Bash(openspec-cn archive init-csharp-library:*)",
+      "Bash(openspec-cn archive:*)"
     ]
   }
 }
