@@ -27,4 +27,4 @@
 ## 5. 文档更新
 
 - [x] 5.1 更新 README.md 添加安装说明（NuGet 命令）
-- [ ] 5.2 添加 CONTRIBUTING.md 说明发布流程（可选）
+- [x] 5.2 添加 CONTRIBUTING.md 说明发布流程（可选）
