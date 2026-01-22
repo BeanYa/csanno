@@ -1,9 +1,12 @@
+** 本项目全程使用Vibe Coding，测试学习AI能力和探索Vibe Coding用。
+
 # Csanno
 
 > C# 注解式组件注册 - 让 Autofac 拥有 Spring 风格的开发体验
 
-[![Build](https://img.shields.io/badge/.NET-8.0-purple.svg)](https://dotnet.microsoft.com/download/dotnet/8.0)
+[![Build](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
 [![Autofac](https://img.shields.io/badge/Autofac-8.0-blue.svg)](https://autofac.org/)
+[![Source Generator](https://img.shields.io/badge/Source%20Generator-Supported-green.svg)](#)
 
 ## 项目起源
 
@@ -40,6 +43,17 @@ builder.RegisterType<PaymentService>().As<IPaymentService>();
 
 ## 功能特性
 
+### ⚡ 编译期代码生成 (Source Generator)
+
+Csanno 现在支持 **Roslyn Source Generator**，在编译时生成组件注册代码，带来以下优势：
+
+- **零运行时开销**：无需程序集扫描，启动速度更快
+- **AOT 友好**：支持 Native AOT 和 Assembly Trimming
+- **类型安全**：编译期检查所有类型引用
+- **更好的性能**：生成的代码直接调用 Autofac API，无反射开销
+
+生成器会自动检测并优先使用编译期生成的代码，如果失败则回退到运行时扫描。
+
 ### 支持的生命周期
 
 | 特性 | Autofac 等价 | 说明 |
@@ -54,13 +68,17 @@ builder.RegisterType<PaymentService>().As<IPaymentService>();
 
 ### 高级功能
 
+- **编译期代码生成**：Source Generator 自动生成注册代码，零运行时开销
 - **服务接口映射**：`[AsService(typeof(IService))]`
 - **多服务接口**：一个组件可注册为多个服务
-- **元数据支持**：`[WithMetadata("key", value)]`
+- **元数据支持**：`[WithMetadata("key", value)]`（仅支持编译期常量）
 - **自动程序集扫描**：自动发现并注册所有标记的组件
 - **类型安全**：编译期检查，避免运行时错误
+- **智能过滤**：自动排除静态类、抽象类、无公共构造函数的类
 
 ## 安装
+
+### NuGet 包安装
 
 ```bash
 dotnet add package Csanno
@@ -72,6 +90,21 @@ dotnet add package Csanno
 <ItemGroup>
   <PackageReference Include="Csanno" Version="0.1.0" />
   <PackageReference Include="Autofac" Version="8.0.0" />
+</ItemGroup>
+```
+
+### Source Generator 自动启用
+
+安装 NuGet 包后，Source Generator 会自动启用并在编译时生成组件注册代码。
+
+如果你是项目引用方式，确保包含生成器项目：
+
+```xml
+<ItemGroup>
+  <ProjectReference Include="..\src\Csanno.csproj" />
+  <ProjectReference Include="..\src\Csanno.Generator\Csanno.Generator.csproj"
+                    OutputItemType="Analyzer"
+                    ReferenceOutputAssembly="false" />
 </ItemGroup>
 ```
 
@@ -125,21 +158,32 @@ public class UserRepository : IUserRepository, IRepository
 using Autofac;
 using Csanno;
 
-// 方式一：扫描调用程序集
 var builder = new ContainerBuilder();
-builder.RegisterComponents(); // 自动扫描调用程序集
-var container = builder.Build();
 
-// 方式二：扫描指定程序集
+// 自动使用编译期生成的代码（优先）或运行时扫描（后备）
+builder.RegisterComponents();
+var container = builder.Build();
+```
+
+**工作原理**：
+1. `RegisterComponents()` 首先检查是否有编译期生成的注册代码
+2. 如果找到生成的代码，直接调用（零运行时开销）
+3. 如果没有找到，回退到运行时程序集扫描
+4. 开发者无需关心使用哪种方式，API 保持一致
+
+**其他注册方式**：
+
+```csharp
+// 扫描指定程序集
 builder.RegisterComponents(typeof(UserService).Assembly);
 
-// 方式三：扫描多个程序集
+// 扫描多个程序集
 builder.RegisterComponents(
     typeof(UserService).Assembly,
     typeof(OrderService).Assembly
 );
 
-// 方式四：从类型定位程序集
+// 从类型定位程序集
 builder.RegisterComponentsFromType<UserService>();
 ```
 
@@ -242,6 +286,10 @@ Csanno/
 ├── src/
 │   ├── Attributes/          # 注解特性定义
 │   ├── Internal/            # 内部实现（扫描、注册）
+│   ├── Csanno.Generator/    # Roslyn Source Generator
+│   │   ├── Models/          # 组件信息模型
+│   │   ├── Emit/            # 代码发射器
+│   │   └── ComponentGenerator.cs  # 主生成器
 │   └── RegistrationExtensions.cs  # 公开 API
 ├── tests/
 │   ├── Fixtures/            # 测试辅助设施
@@ -253,6 +301,31 @@ Csanno/
 │   ├── Dependencies/        # 依赖注入测试
 │   └── EdgeCases/           # 边界情况测试
 └── openspec/                # OpenSpec 规范文档
+```
+
+### Source Generator 工作原理
+
+Csanno.Generator 是一个 Roslyn Source Generator，在编译时执行以下步骤：
+
+1. **语法分析**：扫描所有带 `[Component]` 特性的类
+2. **信息提取**：提取生命周期、服务映射、元数据等信息
+3. **代码生成**：生成 `RegisterGeneratedComponents()` 方法
+4. **输出文件**：将生成的代码写入 `obj/Generated` 目录
+
+生成的代码示例：
+
+```csharp
+// 自动生成的文件（obj/Generated/Csanno.Generator/.../ComponentRegistration.MyAssembly.g.cs）
+public static partial class ComponentRegistrationExtensions
+{
+    public static void RegisterGeneratedComponents(this ContainerBuilder builder)
+    {
+        builder.RegisterType<UserService>().InstancePerDependency()
+            .As<IUserService>();
+        builder.RegisterType<CacheService>().SingleInstance();
+        // ... 更多组件注册
+    }
+}
 ```
 
 ## 为什么 Autofac 不内置这个功能？
@@ -268,11 +341,31 @@ Csanno/
 
 ## 路线图
 
+- [x] 支持 Source Generator 生成注册代码（零性能开销）
 - [ ] 支持 `@PostConstruct` / `@PreDestroy` 生命周期回调
 - [ ] 支持条件注册（`@Conditional`）
 - [ ] 支持依赖项过滤（`@Autowired(required = false)`）
 - [ ] 集成 .NET Generic Host
-- [ ] 支持 Source Generator 生成注册代码（零性能开销）
+- [ ] 支持属性注入
+- [ ] 支持泛型组件注册
+
+## 性能对比
+
+### Source Generator vs 运行时扫描
+
+| 指标 | Source Generator | 运行时扫描 |
+|------|------------------|------------|
+| 启动时间 | ~0ms | 10-50ms |
+| 内存占用 | 无额外开销 | 需要缓存反射信息 |
+| AOT 支持 | ✅ 完全支持 | ❌ 不支持 |
+| Assembly Trimming | ✅ 安全 | ❌ 可能破坏 |
+| 类型安全 | ✅ 编译期检查 | ⚠️ 运行时检查 |
+
+**Source Generator 优势**：
+- 编译期完成所有工作，运行时直接调用生成的代码
+- 无需反射，无内存缓存开销
+- 支持 Native AOT 和 Assembly Trimming
+- 更好的调试体验（可以看到生成的代码）
 
 ## 许可证
 

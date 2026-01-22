@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <!-- 项目配置 -->
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -12,6 +12,10 @@
     <!-- 代码分析 -->
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
+
+    <!-- 生成器输出配置 -->
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)\Generated</CompilerGeneratedFilesOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,6 +32,19 @@
   <ItemGroup>
     <!-- 项目引用 -->
     <ProjectReference Include="..\src\Csanno.csproj" />
+  </ItemGroup>
+
+  <!-- 使用 Target 构建依赖 -->
+  <ItemGroup>
+    <ProjectReference Include="..\src\Csanno.Generator\Csanno.Generator.csproj"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all"
+                      OutputItemType="None" />
+  </ItemGroup>
+
+  <!-- 直接引用生成器 DLL 作为 analyzer -->
+  <ItemGroup>
+    <Analyzer Include="..\src\Csanno.Generator\bin\Debug\netstandard2.0\Csanno.Generator.dll" />
   </ItemGroup>
 
 </Project>

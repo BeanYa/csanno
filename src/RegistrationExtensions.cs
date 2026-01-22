@@ -20,6 +20,13 @@ public static class RegistrationExtensions
         this ContainerBuilder builder,
         params Assembly[] assemblies)
     {
+        // 优先使用编译期生成的代码
+        if (TryRegisterGenerated(builder, assemblies))
+        {
+            return builder;
+        }
+
+        // 回退到运行时扫描
         var registrations = ComponentScanner.Scan(assemblies);
 
         foreach (var registration in registrations)
@@ -28,6 +35,35 @@ public static class RegistrationExtensions
         }
 
         return builder;
+    }
+
+    /// <summary>
+    /// 尝试使用编译期生成的注册代码
+    /// </summary>
+    /// <param name="builder">容器构建器</param>
+    /// <param name="assemblies">要注册的程序集</param>
+    /// <returns>如果成功使用生成器注册则为 true，否则为 false</returns>
+    private static bool TryRegisterGenerated(ContainerBuilder builder, Assembly[] assemblies)
+    {
+        foreach (var assembly in assemblies)
+        {
+            var registrationType = assembly.GetType(
+                "Csanno.ComponentRegistration.ComponentRegistrationExtensions");
+
+            if (registrationType != null)
+            {
+                var method = registrationType.GetMethod(
+                    "RegisterGeneratedComponents",
+                    BindingFlags.Static | BindingFlags.Public);
+
+                if (method != null)
+                {
+                    method.Invoke(null, new object[] { builder });
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /// <summary>

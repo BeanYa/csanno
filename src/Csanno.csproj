@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <!-- 项目配置 -->
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -46,6 +46,20 @@
 
   <ItemGroup>
     <PackageReference Include="Autofac" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Source Generator 引用 -->
+    <ProjectReference Include="Csanno.Generator\Csanno.Generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 排除生成器源文件 -->
+    <Compile Remove="Csanno.Generator\**" />
+    <EmbeddedResource Remove="Csanno.Generator\**" />
+    <None Remove="Csanno.Generator\**" />
   </ItemGroup>
 
   <ItemGroup>

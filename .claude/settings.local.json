@@ -16,7 +16,15 @@
       "Bash(dotnet sln:*)",
       "Bash(openspec-cn new:*)",
       "Bash(openspec-cn archive init-csharp-library:*)",
-      "Bash(openspec-cn archive:*)"
+      "Bash(openspec-cn archive:*)",
+      "WebSearch",
+      "mcp__web-reader__webReader",
+      "mcp__zread__read_file",
+      "Bash(dotnet clean:*)",
+      "Bash(find:*)",
+      "Bash(dotnet pack:*)",
+      "Bash(dotnet msbuild:*)",
+      "Bash(cd:*)"
     ]
   }
 }
