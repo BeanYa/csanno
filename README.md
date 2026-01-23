@@ -75,6 +75,88 @@ Csanno 现在支持 **Roslyn Source Generator**，在编译时生成组件注册
 - **自动程序集扫描**：自动发现并注册所有标记的组件
 - **类型安全**：编译期检查，避免运行时错误
 - **智能过滤**：自动排除静态类、抽象类、无公共构造函数的类
+- **AOP 拦截**：支持方法前后拦截，编译期生成代理类
+
+### 🎯 AOP 方法拦截
+
+Csanno 支持基于 Source Generator 的 AOP 功能，在编译期生成代理类，实现方法前后拦截：
+
+- **零运行时反射**：代理类在编译期生成
+- **不依赖外部库**：无需 Castle.DynamicProxy 等第三方库
+- **多拦截器支持**：同一注解可绑定多个拦截器
+- **类型安全**：编译期检查拦截器绑定
+
+**使用步骤**：
+
+#### 1. 定义拦截器注解
+
+```csharp
+using Csanno.Attributes;
+
+// 自定义注解必须继承 BaseInterceptAttribute
+public class LoggingAttribute : BaseInterceptAttribute
+{
+    public string AdditionalInfo { get; set; } = "";
+}
+```
+
+#### 2. 实现拦截器
+
+```csharp
+using Csanno.Attributes;
+
+// 拦截器必须继承 BaseInterceptor
+// 使用 [BindWith<T>] 将拦截器绑定到注解（自动注册为组件，无需 [Component]）
+[BindWith<LoggingAttribute>]
+public class LoggingInterceptor : BaseInterceptor
+{
+    public override void OnBefore(MethodInfo method, object?[] args)
+    {
+        Console.WriteLine($"Entering {method.Name}");
+    }
+
+    public override void OnAfter(MethodInfo method, object? result)
+    {
+        Console.WriteLine($"Exiting {method.Name} with result: {result}");
+    }
+}
+```
+
+#### 3. 标记需要拦截的方法
+
+```csharp
+[Component]
+public class CalculatorService
+{
+    // 方法必须是 virtual 才能被拦截
+    [Logging]
+    public virtual int Add(int a, int b)
+    {
+        return a + b;
+    }
+}
+```
+
+#### 4. 注册 AOP 代理
+
+```csharp
+var builder = new ContainerBuilder();
+builder.RegisterComponents();   // 注册组件
+builder.RegisterAopProxies();   // 注册 AOP 代理类
+var container = builder.Build();
+
+var calculator = container.Resolve<CalculatorService>();
+calculator.Add(1, 2);  // 会触发拦截器
+// 输出:
+// Entering Add
+// Exiting Add with result: 3
+```
+
+> ⚠️ **注意**：
+> - 只有声明为 `virtual` 的公共方法才能被拦截
+> - 拦截注解必须继承 `BaseInterceptAttribute`
+> - `[BindWith<T>]` 继承自 `[Component]`，无需重复标记
+
 
 ## 安装
 
@@ -326,16 +408,19 @@ dotnet test --collect:"XPlat Code Coverage"
 ```
 Csanno/
 ├── src/
-│   ├── Attributes/          # 注解特性定义
+│   ├── Attributes/          # 注解特性定义（含 IInterceptor、BindWithAttribute）
 │   ├── Internal/            # 内部实现（扫描、注册）
 │   ├── Csanno.Generator/    # Roslyn Source Generator
-│   │   ├── Models/          # 组件信息模型
-│   │   ├── Emit/            # 代码发射器
-│   │   └── ComponentGenerator.cs  # 主生成器
-│   └── RegistrationExtensions.cs  # 公开 API
+│   │   ├── Models/          # 组件和代理信息模型
+│   │   ├── Emit/            # 代码发射器（含 ProxyEmitter）
+│   │   ├── ComponentGenerator.cs   # 组件注册生成器
+│   │   └── InterceptorGenerator.cs # AOP 代理类生成器
+│   └── RegistrationExtensions.cs   # 公开 API
 ├── tests/
 │   ├── Fixtures/            # 测试辅助设施
 │   ├── TestComponents/      # 测试用组件
+│   │   └── Aop/             # AOP 测试组件（拦截器示例）
+│   ├── Aop/                 # AOP 功能测试
 │   ├── Lifetime/            # 生命周期测试
 │   ├── Services/            # 服务注册测试
 │   ├── Metadata/            # 元数据测试
@@ -384,6 +469,7 @@ public static partial class ComponentRegistrationExtensions
 ## 路线图
 
 - [x] 支持 Source Generator 生成注册代码（零性能开销）
+- [x] 支持 AOP 方法拦截（编译期生成代理类）
 - [ ] 支持 `@PostConstruct` / `@PreDestroy` 生命周期回调
 - [ ] 支持条件注册（`@Conditional`）
 - [ ] 支持依赖项过滤（`@Autowired(required = false)`）

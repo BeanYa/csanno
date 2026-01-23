@@ -138,4 +138,56 @@ public static class RegistrationExtensions
             registrationBuilder.WithMetadata(registration.Metadata);
         }
     }
+
+    /// <summary>
+    /// 注册 AOP 代理类和拦截器（使用编译期生成的代码）
+    /// </summary>
+    /// <param name="builder">容器构建器</param>
+    /// <param name="assemblies">要扫描的程序集</param>
+    /// <returns>容器构建器，用于链式调用</returns>
+    public static ContainerBuilder RegisterAopProxies(
+        this ContainerBuilder builder,
+        params Assembly[] assemblies)
+    {
+        foreach (var assembly in assemblies)
+        {
+            TryRegisterAopGenerated(builder, assembly);
+        }
+        return builder;
+    }
+
+    /// <summary>
+    /// 注册调用程序集中的 AOP 代理类和拦截器
+    /// </summary>
+    /// <param name="builder">容器构建器</param>
+    /// <returns>容器构建器，用于链式调用</returns>
+    public static ContainerBuilder RegisterAopProxies(this ContainerBuilder builder)
+    {
+        var callingAssembly = Assembly.GetCallingAssembly();
+        return builder.RegisterAopProxies(callingAssembly);
+    }
+
+    /// <summary>
+    /// 尝试使用编译期生成的 AOP 注册代码
+    /// </summary>
+    private static bool TryRegisterAopGenerated(ContainerBuilder builder, Assembly assembly)
+    {
+        var registrationType = assembly.GetType(
+            "Csanno.ComponentRegistration.AopRegistrationExtensions");
+
+        if (registrationType != null)
+        {
+            var method = registrationType.GetMethod(
+                "RegisterAopProxies",
+                BindingFlags.Static | BindingFlags.Public);
+
+            if (method != null)
+            {
+                method.Invoke(null, new object[] { builder });
+                return true;
+            }
+        }
+        return false;
+    }
 }
+
