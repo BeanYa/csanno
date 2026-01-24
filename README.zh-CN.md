@@ -125,6 +125,7 @@ using Csanno.Attributes;
 public class LoggingInterceptor : BaseInterceptor
 {
     // OnBefore 返回 bool：true 允许执行原生方法，false 阻止执行
+    // 注意：此返回值仅控制原生方法是否被调用，主要适用于 void 方法
     public override bool OnBefore(MethodInfo method, object?[] args)
     {
         Console.WriteLine($"Entering {method.Name}");
@@ -205,7 +206,7 @@ public class MockInterceptor : BaseInterceptor { ... }
 I1.OnBefore → I2.OnBefore → I3.OnBefore → [原生方法] → I3.OnAfter → I2.OnAfter → I1.OnAfter
 ```
 
-- **OnBefore** 返回 `false` 会阻止原生方法执行（除非有 MustInvoke）
+- **OnBefore** 返回 `false` 会阻止原生方法执行（除非有 MustInvoke）。注意：此返回值仅控制调用，主要适用于 void 方法。
 - **OnAfter** 总是被调用，无论 OnBefore 返回什么
 
 

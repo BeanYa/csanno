@@ -125,6 +125,7 @@ using Csanno.Attributes;
 public class LoggingInterceptor : BaseInterceptor
 {
     // OnBefore returns bool: true allows original method execution, false blocks it
+    // Note: This only controls whether the original method is invoked, primarily useful for void methods
     public override bool OnBefore(MethodInfo method, object?[] args)
     {
         Console.WriteLine($"Entering {method.Name}");
@@ -205,7 +206,7 @@ Multiple interceptors are called in nested structure:
 I1.OnBefore → I2.OnBefore → I3.OnBefore → [Original Method] → I3.OnAfter → I2.OnAfter → I1.OnAfter
 ```
 
-- **OnBefore** returning `false` will block original method execution (unless MustInvoke is present)
+- **OnBefore** returning `false` will block original method execution (unless MustInvoke is present). Note: This only controls invocation, primarily meaningful for void methods.
 - **OnAfter** is always called, regardless of OnBefore return value
 
 
