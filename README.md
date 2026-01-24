@@ -10,7 +10,16 @@
 
 ## 项目起源
 
-**这是一个完全由 AI（Claude Code + GLM-4.7）生成的项目。**
+**这是一个完全由 AI 生成的项目。**
+
+使用以下工具和方法进行开发：
+- Vibe Coding
+- OpenSpec 进行规范驱动的开发
+- Claude Code + GLM-4.7
+- GitHub Copilot 进行代码补全
+- Antigravity + Claude Opus 4.5
+- Open Code + Oh My Open Code + GLM-4.7
+- Open Code + Oh My Open Code + DeepSeek Reasoner
 
 最初，我手动实现了一个名为 `csharp-annotation` 的项目，试图在 Autofac 上实现类似 Java Spring 的注解式组件注册功能。后来我决定让 AI 重新实现这个想法，结果令人惊喜——AI 实现的版本比自己手写的要好得多：
 
@@ -84,6 +93,9 @@ Csanno 支持基于 Source Generator 的 AOP 功能，在编译期生成代理�
 - **零运行时反射**：代理类在编译期生成
 - **不依赖外部库**：无需 Castle.DynamicProxy 等第三方库
 - **多拦截器支持**：同一注解可绑定多个拦截器
+- **嵌套调用链**：洋葱模型，OnBefore/OnAfter 按嵌套顺序调用
+- **调用控制**：OnBefore 返回 bool 控制是否执行原生方法
+- **InvokeType 配置**：灵活配置原生方法调用行为（MustInvoke, NeverInvoke 等）
 - **类型安全**：编译期检查拦截器绑定
 
 **使用步骤**：
@@ -110,11 +122,14 @@ using Csanno.Attributes;
 [BindWith<LoggingAttribute>]
 public class LoggingInterceptor : BaseInterceptor
 {
-    public override void OnBefore(MethodInfo method, object?[] args)
+    // OnBefore 返回 bool：true 允许执行原生方法，false 阻止执行
+    public override bool OnBefore(MethodInfo method, object?[] args)
     {
         Console.WriteLine($"Entering {method.Name}");
+        return true; // 允许继续执行
     }
 
+    // OnAfter 总是被调用，无论 OnBefore 返回什么
     public override void OnAfter(MethodInfo method, object? result)
     {
         Console.WriteLine($"Exiting {method.Name} with result: {result}");
@@ -156,6 +171,40 @@ calculator.Add(1, 2);  // 会触发拦截器
 > - 只有声明为 `virtual` 的公共方法才能被拦截
 > - 拦截注解必须继承 `BaseInterceptAttribute`
 > - `[BindWith<T>]` 继承自 `[Component]`，无需重复标记
+
+#### 5. InvokeType 配置
+
+通过 `InvokeType` 属性配置拦截器对原生方法调用的控制行为：
+
+```csharp
+// 强制调用原生方法，无视 OnBefore 返回值
+[BindWith<CachingAttribute>(InvokeType = InvokeType.MustInvoke)]
+public class CacheInterceptor : BaseInterceptor { ... }
+
+// 永不调用原生方法
+[BindWith<MockAttribute>(InvokeType = InvokeType.NeverInvoke)]
+public class MockInterceptor : BaseInterceptor { ... }
+```
+
+| InvokeType | 说明 |
+|------------|------|
+| `Default` | 等同于 WhenAllTrue |
+| `MustInvoke` | 强制调用原生方法 |
+| `NeverInvoke` | 永不调用原生方法 |
+| `WhenAllTrue` | 所有 OnBefore 返回 true 时调用 |
+| `WhenAnyFalse` | 任一 OnBefore 返回 false 时调用 |
+| `WhenAnyTrue` | 任一 OnBefore 返回 true 时调用 |
+
+#### 6. 嵌套调用链（洋葱模型）
+
+多个拦截器按嵌套结构调用：
+
+```
+I1.OnBefore → I2.OnBefore → I3.OnBefore → [原生方法] → I3.OnAfter → I2.OnAfter → I1.OnAfter
+```
+
+- **OnBefore** 返回 `false` 会阻止原生方法执行（除非有 MustInvoke）
+- **OnAfter** 总是被调用，无论 OnBefore 返回什么
 
 
 ## 安装
@@ -470,6 +519,9 @@ public static partial class ComponentRegistrationExtensions
 
 - [x] 支持 Source Generator 生成注册代码（零性能开销）
 - [x] 支持 AOP 方法拦截（编译期生成代理类）
+- [x] 嵌套拦截器调用链（洋葱模型）
+- [x] OnBefore 返回 bool 控制原生方法执行
+- [x] InvokeType 枚举配置调用行为
 - [ ] 支持 `@PostConstruct` / `@PreDestroy` 生命周期回调
 - [ ] 支持条件注册（`@Conditional`）
 - [ ] 支持依赖项过滤（`@Autowired(required = false)`）
