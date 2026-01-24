@@ -34,8 +34,16 @@ jobs:
     - name: Test
       run: dotnet test --configuration Release --no-build --verbosity normal
 
+    - name: Get Version
+      id: get_version
+      shell: bash
+      run: |
+        TAG_NAME="${{ github.event.release.tag_name || github.ref_name }}"
+        VERSION="${TAG_NAME#v}" # Strip 'v' prefix if exists
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
     - name: Pack
-      run: dotnet pack --configuration Release --no-build --output nupkgs /p:Version=${{ github.event.release.tag_name || '0.0.1' }}
+      run: dotnet pack --configuration Release --no-build --output nupkgs /p:Version=${{ steps.get_version.outputs.version }}
 
     - name: Publish to NuGet
       run: dotnet nuget push nupkgs/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
