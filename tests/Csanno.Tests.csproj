@@ -13,9 +13,6 @@
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
 
-    <!-- 生成器输出配置 -->
-    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
-    <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)\Generated</CompilerGeneratedFilesOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -34,17 +31,12 @@
     <ProjectReference Include="..\src\Csanno.csproj" />
   </ItemGroup>
 
-  <!-- 使用 Target 构建依赖 -->
   <ItemGroup>
+    <!-- 引用生成器作为 Analyzer -->
     <ProjectReference Include="..\src\Csanno.Generator\Csanno.Generator.csproj"
                       ReferenceOutputAssembly="false"
                       PrivateAssets="all"
-                      OutputItemType="None" />
-  </ItemGroup>
-
-  <!-- 直接引用生成器 DLL 作为 analyzer -->
-  <ItemGroup>
-    <Analyzer Include="..\src\Csanno.Generator\bin\Debug\netstandard2.0\Csanno.Generator.dll" />
+                      OutputItemType="Analyzer" />
   </ItemGroup>
 
 </Project>

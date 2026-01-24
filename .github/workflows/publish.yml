@@ -1,89 +1,34 @@
-name: Publish NuGet Package
+name: Publish to NuGet
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'  # 触发条件：推送 v 开头的版本标签（如 v1.0.0）
-  workflow_dispatch:  # 允许手动触发
+  release:
+    types: [published]
+  workflow_dispatch:
 
 jobs:
-  publish:
-    name: Publish to NuGet.org
+  build-and-publish:
     runs-on: ubuntu-latest
-    environment: pub
-
-    permissions:
-      contents: read
+    environment: Pub
 
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # 获取完整历史用于符号包
+    - uses: actions/checkout@v4
 
-      - name: 设置 .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
 
-      - name: 提取版本号
-        id: get_version
-        run: |
-          if [[ "${{ github.ref }}" == "refs/tags/"* ]]; then
-            VERSION=${GITHUB_REF#refs/tags/v}
-          else
-            VERSION="0.0.0"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "version=$VERSION"
+    - name: Restore dependencies
+      run: dotnet restore
 
-      - name: 还原依赖
-        run: dotnet restore
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
 
-      - name: 构建
-        run: dotnet build --configuration Release
+    - name: Test
+      run: dotnet test --configuration Release --no-build --verbosity normal
 
-      - name: 运行测试
-        run: dotnet test --configuration Release --no-build --verbosity normal
+    - name: Pack
+      run: dotnet pack --configuration Release --no-build --output nupkgs /p:Version=${{ github.event.release.tag_name || '0.0.1' }}
 
-      - name: 打包
-        run: |
-          dotnet pack src/Csanno.csproj \
-            --configuration Release \
-            --no-build \
-            /p:Version=${{ steps.get_version.outputs.version }} \
-            /p:PackageVersion=${{ steps.get_version.outputs.version }}
-
-      - name: 验证包
-        run: |
-          PACKAGE_PATH=$(find src/bin/Release -name "*.nupkg" | grep -v ".snupkg" | head -n 1)
-          echo "验证包: $PACKAGE_PATH"
-          if [ ! -f "$PACKAGE_PATH" ]; then
-            echo "错误: 包文件不存在"
-            exit 1
-          fi
-          echo "包文件验证成功"
-
-      - name: 调试 API Key
-        run: |
-          if [ -z "${{ secrets.NUGET_API_KEY }}" ]; then
-            echo "错误: NUGET_API_KEY secret 未设置"
-            exit 1
-          fi
-          echo "API Key 已配置（长度: ${#NUGET_API_KEY} 字符）"
-
-      - name: 发布到 NuGet.org
-        run: |
-          PACKAGE_PATH=$(find src/bin/Release -name "*.nupkg" | grep -v ".snupkg" | head -n 1)
-          SYMBOL_PATH=$(find src/bin/Release -name "*.snupkg" | head -n 1)
-          echo "发布包: $PACKAGE_PATH"
-          echo "发布符号: $SYMBOL_PATH"
-          dotnet nuget push "$PACKAGE_PATH" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_API_KEY }} -ss https://nuget.smbsrc.net --skip-duplicate
-
-      - name: 上传构建产物
-        uses: actions/upload-artifact@v4
-        with:
-          name: nuget-packages
-          path: |
-            src/bin/Release/*.nupkg
-            src/bin/Release/*.snupkg
+    - name: Publish to NuGet
+      run: dotnet nuget push nupkgs/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
