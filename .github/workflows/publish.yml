@@ -3,6 +3,10 @@ name: Publish to NuGet
 on:
   release:
     types: [published]
+  push:
+    tags:
+      - 'v*'
+      - '*.*.*'
   workflow_dispatch:
 
 jobs:
