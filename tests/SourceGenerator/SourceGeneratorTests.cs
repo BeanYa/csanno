@@ -532,44 +532,11 @@ public class SourceGeneratorTests
     /// </summary>
     private static string ReadGeneratedRegistrationCode()
     {
-        var basePath = Path.Combine("tests", "obj", "Generated", "Csanno.Generator",
-            "Csanno.Generator.ComponentGenerator",
-            $"ComponentRegistration.Csanno.Tests.g.cs");
+        var fileName = "ComponentRegistration.Csanno.Tests.g.cs";
+        var relativePath = Path.Combine("Generated", "Csanno.Generator",
+            "Csanno.Generator.ComponentGenerator", fileName);
 
-        if (!File.Exists(basePath))
-        {
-            // 尝试完整路径
-            basePath = Path.Combine(
-                Directory.GetCurrentDirectory(),
-                "tests",
-                "obj",
-                "Generated",
-                "Csanno.Generator",
-                "Csanno.Generator.ComponentGenerator",
-                $"ComponentRegistration.Csanno.Tests.g.cs");
-        }
-
-        if (!File.Exists(basePath))
-        {
-            // 尝试从项目根目录
-            var projectRoot = Directory.GetCurrentDirectory();
-            while (Directory.Exists(Path.Combine(projectRoot, "tests")))
-            {
-                var testPath = Path.Combine(projectRoot, "tests", "obj", "Generated",
-                    "Csanno.Generator", "Csanno.Generator.ComponentGenerator",
-                    $"ComponentRegistration.Csanno.Tests.g.cs");
-                if (File.Exists(testPath))
-                {
-                    basePath = testPath;
-                    break;
-                }
-                var parent = Directory.GetParent(projectRoot);
-                if (parent == null) break;
-                projectRoot = parent.FullName;
-            }
-        }
-
-        return File.ReadAllText(basePath);
+        return ReadGeneratedFile(relativePath);
     }
 
     /// <summary>
@@ -577,43 +544,60 @@ public class SourceGeneratorTests
     /// </summary>
     private static string ReadGeneratedDebugCode()
     {
-        var basePath = Path.Combine("tests", "obj", "Generated", "Csanno.Generator",
-            "Csanno.Generator.ComponentGenerator",
-            "GeneratorDebug.g.cs");
+        var fileName = "GeneratorDebug.g.cs";
+        var relativePath = Path.Combine("Generated", "Csanno.Generator",
+            "Csanno.Generator.ComponentGenerator", fileName);
 
-        if (!File.Exists(basePath))
+        return ReadGeneratedFile(relativePath);
+    }
+    
+    private static string ReadGeneratedFile(string relativePath)
+    {
+        var currentDir = Directory.GetCurrentDirectory();
+        
+        // Strategy 1: Look for "obj" directory relative to current location (upwards)
+        var dir = new DirectoryInfo(currentDir);
+        while (dir != null)
         {
-            basePath = Path.Combine(
-                Directory.GetCurrentDirectory(),
-                "tests",
-                "obj",
-                "Generated",
-                "Csanno.Generator",
-                "Csanno.Generator.ComponentGenerator",
-                "GeneratorDebug.g.cs");
-        }
-
-        if (!File.Exists(basePath))
-        {
-            // 尝试从项目根目录
-            var projectRoot = Directory.GetCurrentDirectory();
-            while (Directory.Exists(Path.Combine(projectRoot, "tests")))
+            // Check if we are in the "tests" folder or if "tests" occupies a sibling/child (less likely when running form bin)
+            // Ideally we find "tests/obj" or just "obj" if we are in "tests"
+            
+            // Case 1: We found "tests" directory (e.g. repo/tests)
+            if (dir.Name.Equals("tests", StringComparison.OrdinalIgnoreCase))
             {
-                var testPath = Path.Combine(projectRoot, "tests", "obj", "Generated",
-                    "Csanno.Generator", "Csanno.Generator.ComponentGenerator",
-                    "GeneratorDebug.g.cs");
-                if (File.Exists(testPath))
-                {
-                    basePath = testPath;
-                    break;
-                }
-                var parent = Directory.GetParent(projectRoot);
-                if (parent == null) break;
-                projectRoot = parent.FullName;
+                var target = Path.Combine(dir.FullName, "obj", relativePath);
+                if (File.Exists(target)) return File.ReadAllText(target);
             }
+
+            // Case 2: We are in repo root and "tests" is a subdirectory
+            var testsDir = Path.Combine(dir.FullName, "tests");
+            if (Directory.Exists(testsDir))
+            {
+                var target = Path.Combine(testsDir, "obj", relativePath);
+                if (File.Exists(target)) return File.ReadAllText(target);
+            }
+
+            dir = dir.Parent;
         }
 
-        return File.Exists(basePath) ? File.ReadAllText(basePath) : string.Empty;
+        // Fallback: direct check in typical locations relative to CWD
+        var candidates = new[]
+        {
+            // Relative to project root if running from bin
+            Path.Combine("..", "..", "..", "obj", relativePath),
+            // Relative to repo root
+            Path.Combine("tests", "obj", relativePath),
+            // Absolute check based on known structure (last resort for local dev)
+            Path.Combine(currentDir.Split(new[]{"bin"}, StringSplitOptions.None)[0], "obj", relativePath)
+        };
+
+        foreach (var candidate in candidates)
+        {
+            var fullPath = Path.GetFullPath(Path.Combine(currentDir, candidate));
+            if (File.Exists(fullPath)) return File.ReadAllText(fullPath);
+        }
+
+        throw new FileNotFoundException($"Could not find generated file '{relativePath}' in any expected location. Current Directory: {currentDir}");
     }
 
     #endregion
