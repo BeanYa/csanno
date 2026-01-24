@@ -98,6 +98,7 @@ Csanno supports Source Generator-based AOP functionality, generating proxy class
 - **Nested call chain**: Onion model, OnBefore/OnAfter called in nested order
 - **Call control**: OnBefore returns bool to control whether to execute original method
 - **InvokeType configuration**: Flexible configuration of original method invocation behavior (MustInvoke, NeverInvoke, etc.)
+- **InvokeResult**: All interceptor methods receive an `InvokeResult` parameter to modify/provide return values
 - **Type safety**: Compile-time checking of interceptor bindings
 
 **Usage Steps**:
@@ -126,7 +127,7 @@ public class LoggingInterceptor : BaseInterceptor
 {
     // OnBefore returns bool: true allows original method execution, false blocks it
     // Note: This only controls whether the original method is invoked, only applies to void methods
-    public override bool OnBefore(MethodInfo method, object?[] args)
+    public override bool OnBefore(MethodInfo method, object?[] args, InvokeResult invokeResult)
     {
         Console.WriteLine($"Entering {method.Name}");
         return true; // Allow execution to continue

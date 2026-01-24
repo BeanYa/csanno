@@ -40,7 +40,7 @@ public class LoggingInterceptor : BaseInterceptor
     public static void ClearLogs() => Logs.Clear();
 
     /// <inheritdoc />
-    public override bool OnBefore(MethodInfo method, object?[] args)
+    public override bool OnBefore(MethodInfo method, object?[] args, InvokeResult invokeResult)
     {
         Logs.Add($"[Before] {method.Name}({string.Join(", ", args)})");
         return true;
@@ -70,7 +70,7 @@ public class LoggingInterceptor2 : BaseInterceptor
     public static void ClearLogs() => Logs.Clear();
 
     /// <inheritdoc />
-    public override bool OnBefore(MethodInfo method, object?[] args)
+    public override bool OnBefore(MethodInfo method, object?[] args, InvokeResult invokeResult)
     {
         Logs.Add($"[Before-2] {method.Name}({string.Join(", ", args)})");
         return true;
@@ -157,14 +157,15 @@ public class CacheInterceptor : BaseInterceptor
     }
 
     /// <inheritdoc />
-    public override bool OnBefore(MethodInfo method, object?[] args)
+    public override bool OnBefore(MethodInfo method, object?[] args, InvokeResult invokeResult)
     {
         var key = GenerateCacheKey(method, args);
         _currentKey = key;
         
-        if (_cache.ContainsKey(key))
+        if (_cache.TryGetValue(key, out var cachedValue))
         {
             CacheHitCount++;
+            invokeResult.SetValue(cachedValue);
         }
         else
         {
@@ -207,7 +208,7 @@ public class ChainInterceptor1 : BaseInterceptor
     public static void Clear() => CallOrder.Clear();
 
     /// <inheritdoc />
-    public override bool OnBefore(MethodInfo method, object?[] args)
+    public override bool OnBefore(MethodInfo method, object?[] args, InvokeResult invokeResult)
     {
         CallOrder.Add("I1.OnBefore");
         return true;
@@ -232,7 +233,7 @@ public class ChainInterceptor2 : BaseInterceptor
     public static bool ShouldContinue { get; set; } = true;
 
     /// <inheritdoc />
-    public override bool OnBefore(MethodInfo method, object?[] args)
+    public override bool OnBefore(MethodInfo method, object?[] args, InvokeResult invokeResult)
     {
         ChainInterceptor1.CallOrder.Add("I2.OnBefore");
         return ShouldContinue;
@@ -252,7 +253,7 @@ public class ChainInterceptor2 : BaseInterceptor
 public class ChainInterceptor3MustInvoke : BaseInterceptor
 {
     /// <inheritdoc />
-    public override bool OnBefore(MethodInfo method, object?[] args)
+    public override bool OnBefore(MethodInfo method, object?[] args, InvokeResult invokeResult)
     {
         ChainInterceptor1.CallOrder.Add("I3.OnBefore");
         return true;

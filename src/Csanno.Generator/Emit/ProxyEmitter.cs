@@ -62,9 +62,10 @@ internal sealed class ProxyEmitter
         foreach (var method in proxy.InterceptedMethods)
         {
             var paramTypes = method.Parameters.Count > 0
-                ? $", new System.Type[] {{ {string.Join(", ", method.Parameters.Select(p => $"typeof({p.Type})"))} }}"
+                ? string.Join(", ", method.Parameters.Select(p => $"typeof({p.Type})"))
                 : "";
-            sb.AppendLine($"        private static readonly MethodInfo _{ToCamelCase(method.MethodName)}Method = typeof({proxy.FullTypeName}).GetMethod(\"{method.MethodName}\"{paramTypes})!;");
+            var fieldSuffix = method.Parameters.Count > 0 ? $"_{method.Parameters.Count}" : "";
+            sb.AppendLine($"        private static readonly MethodInfo _{ToCamelCase(method.MethodName)}{fieldSuffix}Method = typeof({proxy.FullTypeName}).GetMethod(\"{method.MethodName}\", new System.Type[] {{ {paramTypes} }})!;");
         }
         sb.AppendLine();
 
@@ -248,6 +249,7 @@ internal sealed class ProxyEmitter
         sb.AppendLine("            // 记录 OnBefore 结果");
         sb.AppendLine("            var results = new List<bool>();");
         sb.AppendLine("            int index = 0;");
+        sb.AppendLine("            var invokeResult = new InvokeResult();");
         
         if (method.ReturnsVoid)
         {
@@ -268,7 +270,8 @@ internal sealed class ProxyEmitter
     private void GenerateNestedCallChainVoid(StringBuilder sb, MethodInterceptInfo method)
     {
         var baseArgs = string.Join(", ", method.Parameters.Select(p => p.Name));
-        var methodField = $"_{ToCamelCase(method.MethodName)}Method";
+        var fieldSuffix = method.Parameters.Count > 0 ? $"_{method.Parameters.Count}" : "";
+        var methodField = $"_{ToCamelCase(method.MethodName)}{fieldSuffix}Method";
 
         sb.AppendLine("            void InvokeChain()");
         sb.AppendLine("            {");
@@ -278,14 +281,14 @@ internal sealed class ProxyEmitter
         sb.AppendLine("                    bool onBeforeSucceeded = false;");
         sb.AppendLine("                    try");
         sb.AppendLine("                    {");
-        sb.AppendLine($"                        bool r = interceptor.OnBefore({methodField}, args);");
+        sb.AppendLine($"                        bool r = interceptor.OnBefore({methodField}, args, invokeResult);");
         sb.AppendLine("                        results.Add(r);");
         sb.AppendLine("                        onBeforeSucceeded = true;");
         sb.AppendLine("                        InvokeChain();");
         sb.AppendLine("                    }");
         sb.AppendLine("                    catch (System.Exception ex) when (!onBeforeSucceeded)");
         sb.AppendLine("                    {");
-        sb.AppendLine($"                        bool shouldContinue = interceptor.OnBeforeException({methodField}, args, ex);");
+        sb.AppendLine($"                        bool shouldContinue = interceptor.OnBeforeException({methodField}, args, ex, invokeResult);");
         sb.AppendLine("                        if (shouldContinue)");
         sb.AppendLine("                        {");
         sb.AppendLine("                            results.Add(true);");
@@ -321,7 +324,8 @@ internal sealed class ProxyEmitter
     private void GenerateNestedCallChainWithReturn(StringBuilder sb, MethodInterceptInfo method)
     {
         var baseArgs = string.Join(", ", method.Parameters.Select(p => p.Name));
-        var methodField = $"_{ToCamelCase(method.MethodName)}Method";
+        var fieldSuffix = method.Parameters.Count > 0 ? $"_{method.Parameters.Count}" : "";
+        var methodField = $"_{ToCamelCase(method.MethodName)}{fieldSuffix}Method";
 
         sb.AppendLine("            void InvokeChain()");
         sb.AppendLine("            {");
@@ -331,14 +335,14 @@ internal sealed class ProxyEmitter
         sb.AppendLine("                    bool onBeforeSucceeded = false;");
         sb.AppendLine("                    try");
         sb.AppendLine("                    {");
-        sb.AppendLine($"                        bool r = interceptor.OnBefore({methodField}, args);");
+        sb.AppendLine($"                        bool r = interceptor.OnBefore({methodField}, args, invokeResult);");
         sb.AppendLine("                        results.Add(r);");
         sb.AppendLine("                        onBeforeSucceeded = true;");
         sb.AppendLine("                        InvokeChain();");
         sb.AppendLine("                    }");
         sb.AppendLine("                    catch (System.Exception ex) when (!onBeforeSucceeded)");
         sb.AppendLine("                    {");
-        sb.AppendLine($"                        bool shouldContinue = interceptor.OnBeforeException({methodField}, args, ex);");
+        sb.AppendLine($"                        bool shouldContinue = interceptor.OnBeforeException({methodField}, args, ex, invokeResult);");
         sb.AppendLine("                        if (shouldContinue)");
         sb.AppendLine("                        {");
         sb.AppendLine("                            results.Add(true);");
@@ -361,14 +365,23 @@ internal sealed class ProxyEmitter
         sb.AppendLine("                {");
         sb.AppendLine("                    // 计算是否调用原生方法");
         sb.AppendLine("                    bool shouldInvoke = ComputeShouldInvoke(allInterceptors, results);");
-        sb.AppendLine("                    if (shouldInvoke)");
+        sb.AppendLine("                    if (shouldInvoke && !invokeResult.HasValue)");
         sb.AppendLine("                    {");
         sb.AppendLine($"                        result = base.{method.MethodName}({baseArgs});");
+        sb.AppendLine("                        invokeResult.SetValue(result);");
+        sb.AppendLine("                    }");
+        sb.AppendLine("                    else if (invokeResult.HasValue)");
+        sb.AppendLine("                    {");
+        sb.AppendLine($"                        result = ({method.ReturnType})invokeResult.Value!;");
         sb.AppendLine("                    }");
         sb.AppendLine("                }");
         sb.AppendLine("            }");
         sb.AppendLine();
         sb.AppendLine("            InvokeChain();");
+        sb.AppendLine("            if (invokeResult.HasValue)");
+        sb.AppendLine("            {");
+        sb.AppendLine($"                return ({method.ReturnType})invokeResult.Value!;");
+        sb.AppendLine("            }");
         sb.AppendLine("            return result;");
     }
 

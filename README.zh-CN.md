@@ -98,6 +98,7 @@ Csanno 支持基于 Source Generator 的 AOP 功能，在编译期生成代理�
 - **嵌套调用链**：洋葱模型，OnBefore/OnAfter 按嵌套顺序调用
 - **调用控制**：OnBefore 返回 bool 控制是否执行原生方法
 - **InvokeType 配置**：灵活配置原生方法调用行为（MustInvoke, NeverInvoke 等）
+- **InvokeResult**：所有拦截器方法接收 `InvokeResult` 参数，可修改或提供返回值
 - **类型安全**：编译期检查拦截器绑定
 
 **使用步骤**：
@@ -126,7 +127,7 @@ public class LoggingInterceptor : BaseInterceptor
 {
     // OnBefore 返回 bool：true 允许执行原生方法，false 阻止执行
     // 注意：此返回值仅控制原生方法是否被调用，仅适用于 void 方法
-    public override bool OnBefore(MethodInfo method, object?[] args)
+    public override bool OnBefore(MethodInfo method, object?[] args, InvokeResult invokeResult)
     {
         Console.WriteLine($"Entering {method.Name}");
         return true; // 允许继续执行
