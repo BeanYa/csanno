@@ -554,50 +554,71 @@ public class SourceGeneratorTests
     private static string ReadGeneratedFile(string relativePath)
     {
         var currentDir = Directory.GetCurrentDirectory();
-        
-        // Strategy 1: Look for "obj" directory relative to current location (upwards)
+        var assemblyLocation = Path.GetDirectoryName(typeof(SourceGeneratorTests).Assembly.Location) ?? currentDir;
+        var searchPaths = new List<string>();
+
+        // Strategy 1: Look relative to Assembly Location (usually bin/Debug/net10.0)
+        // From bin/Release/net10.0, up 3 levels to tests/ folder
+        var testsFolderFromAssembly = Path.GetFullPath(Path.Combine(assemblyLocation, "..", "..", ".."));
+        searchPaths.Add(Path.Combine(testsFolderFromAssembly, "obj", relativePath));
+
+        // Strategy 2: Look upwards from CWD for "tests/obj" or just "obj"
         var dir = new DirectoryInfo(currentDir);
         while (dir != null)
         {
-            // Check if we are in the "tests" folder or if "tests" occupies a sibling/child (less likely when running form bin)
-            // Ideally we find "tests/obj" or just "obj" if we are in "tests"
-            
-            // Case 1: We found "tests" directory (e.g. repo/tests)
             if (dir.Name.Equals("tests", StringComparison.OrdinalIgnoreCase))
             {
-                var target = Path.Combine(dir.FullName, "obj", relativePath);
-                if (File.Exists(target)) return File.ReadAllText(target);
+                searchPaths.Add(Path.Combine(dir.FullName, "obj", relativePath));
             }
-
-            // Case 2: We are in repo root and "tests" is a subdirectory
             var testsDir = Path.Combine(dir.FullName, "tests");
             if (Directory.Exists(testsDir))
             {
-                var target = Path.Combine(testsDir, "obj", relativePath);
-                if (File.Exists(target)) return File.ReadAllText(target);
+                searchPaths.Add(Path.Combine(testsDir, "obj", relativePath));
             }
-
             dir = dir.Parent;
         }
 
-        // Fallback: direct check in typical locations relative to CWD
-        var candidates = new[]
-        {
-            // Relative to project root if running from bin
-            Path.Combine("..", "..", "..", "obj", relativePath),
-            // Relative to repo root
-            Path.Combine("tests", "obj", relativePath),
-            // Absolute check based on known structure (last resort for local dev)
-            Path.Combine(currentDir.Split(new[]{"bin"}, StringSplitOptions.None)[0], "obj", relativePath)
-        };
+        // Strategy 3: Hardcoded relative lookups from CWD
+        searchPaths.Add(Path.Combine(currentDir, "tests", "obj", relativePath));
+        searchPaths.Add(Path.Combine(currentDir, "..", "tests", "obj", relativePath));
 
-        foreach (var candidate in candidates)
+        // Attempt to find the file
+        foreach (var path in searchPaths)
         {
-            var fullPath = Path.GetFullPath(Path.Combine(currentDir, candidate));
-            if (File.Exists(fullPath)) return File.ReadAllText(fullPath);
+            if (File.Exists(path))
+            {
+                return File.ReadAllText(path);
+            }
         }
 
-        throw new FileNotFoundException($"Could not find generated file '{relativePath}' in any expected location. Current Directory: {currentDir}");
+        // If we get here, it failed. Construct a detailed error message.
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"Could not find generated file '{relativePath}' in any expected location.");
+        sb.AppendLine($"Current Directory: {currentDir}");
+        sb.AppendLine($"Assembly Location: {assemblyLocation}");
+        sb.AppendLine("Attempted paths:");
+        foreach (var path in searchPaths.Distinct())
+        {
+            sb.AppendLine($"  - {path} (Exists: {File.Exists(path)})");
+        }
+        
+        // Also list contents of what we CAN find to help debug
+        if (Directory.Exists(testsFolderFromAssembly))
+        {
+            sb.AppendLine($"Contents of '{testsFolderFromAssembly}':");
+            foreach (var d in Directory.GetDirectories(testsFolderFromAssembly)) 
+                sb.AppendLine($"  [DIR] {Path.GetFileName(d)}");
+            
+            var objPath = Path.Combine(testsFolderFromAssembly, "obj");
+            if (Directory.Exists(objPath))
+            {
+                sb.AppendLine($"Contents of '{objPath}':");
+                foreach (var d in Directory.GetDirectories(objPath)) 
+                    sb.AppendLine($"  [DIR] {Path.GetFileName(d)}");
+            }
+        }
+
+        throw new FileNotFoundException(sb.ToString());
     }
 
     #endregion

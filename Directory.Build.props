@@ -1,6 +1,5 @@
 <Project>
   <PropertyGroup>
-    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
-    <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)/Generated</CompilerGeneratedFilesOutputPath>
+    <!-- 保持为空，防止对所有项目生效 -->
   </PropertyGroup>
 </Project>
