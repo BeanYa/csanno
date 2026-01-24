@@ -172,12 +172,14 @@ dotnet test --verbosity normal
 tests/
 ├── Fixtures/           # 共享测试辅助设施
 ├── TestComponents/     # 测试用组件定义
-├── Lifetime/           # 生命周期测试
-├── Services/           # 服务注册测试
-├── Metadata/           # 元数据测试
-├── Owned/              # Owned 实例测试
-├── Dependencies/       # 依赖注入测试
-└── EdgeCases/          # 边界情况测试
+├── Aop/                # AOP 功能测试
+└── Registration/       # 注册功能测试
+    ├── Lifetime/       # 生命周期测试
+    ├── Services/       # 服务注册测试
+    ├── Metadata/       # 元数据测试
+    ├── Owned/          # Owned 实例测试
+    ├── Dependencies/   # 依赖注入测试
+    └── EdgeCases/      # 边界情况测试
 ```
 
 ## 报告问题

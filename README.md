@@ -474,12 +474,13 @@ Csanno/
 │   ├── TestComponents/      # Test components
 │   │   └── Aop/             # AOP test components (interceptor examples)
 │   ├── Aop/                 # AOP feature tests
-│   ├── Lifetime/            # Lifecycle tests
-│   ├── Services/            # Service registration tests
-│   ├── Metadata/            # Metadata tests
-│   ├── Owned/               # Owned instance tests
-│   ├── Dependencies/        # Dependency injection tests
-│   └── EdgeCases/           # Edge case tests
+│   └── Registration/        # Registration feature tests
+│       ├── Lifetime/        # Lifecycle tests
+│       ├── Services/        # Service registration tests
+│       ├── Metadata/        # Metadata tests
+│       ├── Owned/           # Owned instance tests
+│       ├── Dependencies/    # Dependency injection tests
+│       └── EdgeCases/       # Edge case tests
 └── openspec/                # OpenSpec specification documents
 ```
 

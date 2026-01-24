@@ -474,12 +474,13 @@ Csanno/
 │   ├── TestComponents/      # 测试用组件
 │   │   └── Aop/             # AOP 测试组件（拦截器示例）
 │   ├── Aop/                 # AOP 功能测试
-│   ├── Lifetime/            # 生命周期测试
-│   ├── Services/            # 服务注册测试
-│   ├── Metadata/            # 元数据测试
-│   ├── Owned/               # Owned 实例测试
-│   ├── Dependencies/        # 依赖注入测试
-│   └── EdgeCases/           # 边界情况测试
+│   └── Registration/        # 注册功能测试
+│       ├── Lifetime/        # 生命周期测试
+│       ├── Services/        # 服务注册测试
+│       ├── Metadata/        # 元数据测试
+│       ├── Owned/           # Owned 实例测试
+│       ├── Dependencies/    # 依赖注入测试
+│       └── EdgeCases/       # 边界情况测试
 └── openspec/                # OpenSpec 规范文档
 ```
 
