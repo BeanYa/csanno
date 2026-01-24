@@ -25,3 +25,7 @@ obj/
 .project
 .vs/
 TestResults/
+
+# Roslyn Generated
+src/Generated/
+tests/Generated/
