@@ -12,7 +12,8 @@ public interface IInterceptor
     /// </summary>
     /// <param name="method">被拦截的方法信息</param>
     /// <param name="args">方法参数</param>
-    void OnBefore(MethodInfo method, object?[] args);
+    /// <returns>返回 true 表示允许执行原生方法，返回 false 表示阻止执行</returns>
+    bool OnBefore(MethodInfo method, object?[] args);
 
     /// <summary>
     /// 方法执行后调用
@@ -28,7 +29,7 @@ public interface IInterceptor
 public abstract class BaseInterceptor : IInterceptor
 {
     /// <inheritdoc />
-    public virtual void OnBefore(MethodInfo method, object?[] args) { }
+    public virtual bool OnBefore(MethodInfo method, object?[] args) => true;
 
     /// <inheritdoc />
     public virtual void OnAfter(MethodInfo method, object? result) { }

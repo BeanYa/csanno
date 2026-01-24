@@ -8,6 +8,10 @@ namespace Csanno.Attributes;
 public sealed class BindWithAttribute<TAttribute> : ComponentAttribute
     where TAttribute : BaseInterceptAttribute
 {
+    /// <summary>
+    /// 原生方法调用类型，默认为 Default（等同于 WhenAllTrue）
+    /// </summary>
+    public InvokeType InvokeType { get; set; } = InvokeType.Default;
 }
 
 /// <summary>
@@ -20,6 +24,11 @@ public sealed class BindWithAttribute : ComponentAttribute
     /// 获取绑定的注解类型
     /// </summary>
     public Type AttributeType { get; }
+
+    /// <summary>
+    /// 原生方法调用类型，默认为 Default（等同于 WhenAllTrue）
+    /// </summary>
+    public InvokeType InvokeType { get; set; } = InvokeType.Default;
 
     /// <summary>
     /// 创建拦截器绑定特性

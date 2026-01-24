@@ -68,8 +68,8 @@ internal sealed class ProxyEmitter
         }
         sb.AppendLine();
 
-        // 拦截器字典字段（按注解类型分组）
-        sb.AppendLine("        private readonly Dictionary<System.Type, IInterceptor[]> _interceptorsByAttribute;");
+        // 拦截器字典字段（按注解类型分组，包含 InvokeType）
+        sb.AppendLine("        private readonly Dictionary<System.Type, (IInterceptor interceptor, InvokeType invokeType)[]> _interceptorsByAttribute;");
         sb.AppendLine();
 
         // 生成构造函数
@@ -81,8 +81,62 @@ internal sealed class ProxyEmitter
             GenerateInterceptedMethod(sb, method);
         }
 
+        // 生成 ComputeShouldInvoke 辅助方法
+        GenerateComputeShouldInvokeMethod(sb);
+
         sb.AppendLine("    }");
         sb.AppendLine("}");
+        sb.AppendLine();
+    }
+
+    private void GenerateComputeShouldInvokeMethod(StringBuilder sb)
+    {
+        sb.AppendLine("        /// <summary>");
+        sb.AppendLine("        /// 根据 OnBefore 结果和 InvokeType 计算是否应该调用原生方法");
+        sb.AppendLine("        /// </summary>");
+        sb.AppendLine("        private static bool ComputeShouldInvoke(List<(IInterceptor interceptor, InvokeType invokeType)> interceptors, List<bool> results)");
+        sb.AppendLine("        {");
+        sb.AppendLine("            if (interceptors.Count == 0) return true;");
+        sb.AppendLine();
+        sb.AppendLine("            // 位掩码计算");
+        sb.AppendLine("            int mask = 0;");
+        sb.AppendLine("            for (int i = 0; i < results.Count; i++)");
+        sb.AppendLine("            {");
+        sb.AppendLine("                if (results[i]) mask |= (1 << i);");
+        sb.AppendLine("            }");
+        sb.AppendLine("            int allTrue = (1 << results.Count) - 1;");
+        sb.AppendLine();
+        sb.AppendLine("            // 检查各 InvokeType 规则（优先级：MustInvoke > NeverInvoke > 其他）");
+        sb.AppendLine("            bool hasMustInvoke = false, hasNeverInvoke = false;");
+        sb.AppendLine("            for (int i = 0; i < interceptors.Count; i++)");
+        sb.AppendLine("            {");
+        sb.AppendLine("                switch (interceptors[i].invokeType)");
+        sb.AppendLine("                {");
+        sb.AppendLine("                    case InvokeType.MustInvoke: hasMustInvoke = true; break;");
+        sb.AppendLine("                    case InvokeType.NeverInvoke: hasNeverInvoke = true; break;");
+        sb.AppendLine("                }");
+        sb.AppendLine("            }");
+        sb.AppendLine();
+        sb.AppendLine("            if (hasMustInvoke) return true;");
+        sb.AppendLine("            if (hasNeverInvoke) return false;");
+        sb.AppendLine();
+        sb.AppendLine("            // 检查其他条件（WhenAnyTrue, WhenAnyFalse, 默认 WhenAllTrue）");
+        sb.AppendLine("            for (int i = 0; i < interceptors.Count; i++)");
+        sb.AppendLine("            {");
+        sb.AppendLine("                switch (interceptors[i].invokeType)");
+        sb.AppendLine("                {");
+        sb.AppendLine("                    case InvokeType.WhenAnyTrue:");
+        sb.AppendLine("                        if (mask != 0) return true;");
+        sb.AppendLine("                        break;");
+        sb.AppendLine("                    case InvokeType.WhenAnyFalse:");
+        sb.AppendLine("                        if (mask != allTrue) return true;");
+        sb.AppendLine("                        break;");
+        sb.AppendLine("                }");
+        sb.AppendLine("            }");
+        sb.AppendLine();
+        sb.AppendLine("            // 默认: WhenAllTrue - 所有返回 true 时调用");
+        sb.AppendLine("            return mask == allTrue;");
+        sb.AppendLine("        }");
         sb.AppendLine();
     }
 
@@ -116,26 +170,40 @@ internal sealed class ProxyEmitter
             }
             sb.AppendLine("        {");
             sb.AppendLine("            var interceptorList = interceptors.ToList();");
-            sb.AppendLine("            _interceptorsByAttribute = new Dictionary<System.Type, IInterceptor[]>();");
+            sb.AppendLine("            _interceptorsByAttribute = new Dictionary<System.Type, (IInterceptor, InvokeType)[]>();");
             sb.AppendLine();
 
-            // 为每个注解类型筛选拦截器
+            // 为每个注解类型筛选拦截器并关联 InvokeType
             foreach (var attrType in allAttributeTypes)
             {
-                // 找到绑定到这个注解的拦截器类型
+                // 找到绑定到这个注解的拦截器及其 InvokeType
                 var boundInterceptors = interceptors
-                    .Where(i => i.BoundAttributeTypes.Contains(attrType))
-                    .Select(i => i.FullTypeName)
+                    .SelectMany(i => i.Bindings
+                        .Where(b => b.AttributeType == attrType)
+                        .Select(b => new { i.FullTypeName, b.InvokeType }))
                     .ToList();
 
                 if (boundInterceptors.Count > 0)
                 {
-                    var typeChecks = string.Join(" || ", boundInterceptors.Select(t => $"i is {t}"));
-                    sb.AppendLine($"            _interceptorsByAttribute[typeof({attrType})] = interceptorList.Where(i => {typeChecks}).ToArray();");
+                    sb.AppendLine($"            _interceptorsByAttribute[typeof({attrType})] = interceptorList");
+                    sb.AppendLine($"                .Select(i => {{");
+                    
+                    // 为每个拦截器类型生成判断逻辑
+                    var first = true;
+                    foreach (var bi in boundInterceptors)
+                    {
+                        var prefix = first ? "                    " : "                    else ";
+                        sb.AppendLine($"{prefix}if (i is {bi.FullTypeName}) return (i, InvokeType.{bi.InvokeType});");
+                        first = false;
+                    }
+                    sb.AppendLine("                    else return (null!, InvokeType.Default);");
+                    sb.AppendLine($"                }})");
+                    sb.AppendLine($"                .Where(x => x.Item1 != null)");
+                    sb.AppendLine($"                .ToArray();");
                 }
                 else
                 {
-                    sb.AppendLine($"            _interceptorsByAttribute[typeof({attrType})] = System.Array.Empty<IInterceptor>();");
+                    sb.AppendLine($"            _interceptorsByAttribute[typeof({attrType})] = System.Array.Empty<(IInterceptor, InvokeType)>();");
                 }
             }
 
@@ -164,49 +232,108 @@ internal sealed class ProxyEmitter
             sb.AppendLine("            var args = System.Array.Empty<object?>();");
         }
 
-        // 收集所有拦截器
-        sb.AppendLine("            var allInterceptors = new List<IInterceptor>();");
+        // 收集所有拦截器（带 InvokeType）
+        sb.AppendLine("            var allInterceptors = new List<(IInterceptor interceptor, InvokeType invokeType)>();");
         foreach (var attrType in method.InterceptorAttributeTypes)
         {
-            sb.AppendLine($"            if (_interceptorsByAttribute.TryGetValue(typeof({attrType}), out var interceptors_{attrType.Replace(".", "_")}))");
+            var safeName = attrType.Replace(".", "_");
+            sb.AppendLine($"            if (_interceptorsByAttribute.TryGetValue(typeof({attrType}), out var interceptors_{safeName}))");
             sb.AppendLine("            {");
-            sb.AppendLine($"                allInterceptors.AddRange(interceptors_{attrType.Replace(".", "_")});");
+            sb.AppendLine($"                allInterceptors.AddRange(interceptors_{safeName});");
             sb.AppendLine("            }");
         }
         sb.AppendLine();
 
-        // OnBefore
-        sb.AppendLine("            foreach (var interceptor in allInterceptors)");
-        sb.AppendLine("            {");
-        sb.AppendLine($"                interceptor.OnBefore(_{ToCamelCase(method.MethodName)}Method, args);");
-        sb.AppendLine("            }");
-        sb.AppendLine();
-
-        // 调用基类方法
-        var baseArgs = string.Join(", ", method.Parameters.Select(p => p.Name));
+        // 嵌套调用链实现
+        sb.AppendLine("            // 记录 OnBefore 结果");
+        sb.AppendLine("            var results = new List<bool>();");
+        sb.AppendLine("            int index = 0;");
+        
         if (method.ReturnsVoid)
         {
-            sb.AppendLine($"            base.{method.MethodName}({baseArgs});");
             sb.AppendLine();
-            sb.AppendLine("            foreach (var interceptor in allInterceptors)");
-            sb.AppendLine("            {");
-            sb.AppendLine($"                interceptor.OnAfter(_{ToCamelCase(method.MethodName)}Method, null);");
-            sb.AppendLine("            }");
+            GenerateNestedCallChainVoid(sb, method);
         }
         else
         {
-            sb.AppendLine($"            var result = base.{method.MethodName}({baseArgs});");
+            sb.AppendLine($"            {method.ReturnType} result = default!;");
             sb.AppendLine();
-            sb.AppendLine("            foreach (var interceptor in allInterceptors)");
-            sb.AppendLine("            {");
-            sb.AppendLine($"                interceptor.OnAfter(_{ToCamelCase(method.MethodName)}Method, result);");
-            sb.AppendLine("            }");
-            sb.AppendLine();
-            sb.AppendLine("            return result;");
+            GenerateNestedCallChainWithReturn(sb, method);
         }
 
         sb.AppendLine("        }");
         sb.AppendLine();
+    }
+
+    private void GenerateNestedCallChainVoid(StringBuilder sb, MethodInterceptInfo method)
+    {
+        var baseArgs = string.Join(", ", method.Parameters.Select(p => p.Name));
+        var methodField = $"_{ToCamelCase(method.MethodName)}Method";
+
+        sb.AppendLine("            void InvokeChain()");
+        sb.AppendLine("            {");
+        sb.AppendLine("                if (index < allInterceptors.Count)");
+        sb.AppendLine("                {");
+        sb.AppendLine("                    var (interceptor, invokeType) = allInterceptors[index++];");
+        sb.AppendLine("                    try");
+        sb.AppendLine("                    {");
+        sb.AppendLine($"                        bool r = interceptor.OnBefore({methodField}, args);");
+        sb.AppendLine("                        results.Add(r);");
+        sb.AppendLine("                        InvokeChain();");
+        sb.AppendLine("                    }");
+        sb.AppendLine("                    finally");
+        sb.AppendLine("                    {");
+        sb.AppendLine($"                        interceptor.OnAfter({methodField}, null);");
+        sb.AppendLine("                    }");
+        sb.AppendLine("                }");
+        sb.AppendLine("                else");
+        sb.AppendLine("                {");
+        sb.AppendLine("                    // 计算是否调用原生方法");
+        sb.AppendLine("                    bool shouldInvoke = ComputeShouldInvoke(allInterceptors, results);");
+        sb.AppendLine("                    if (shouldInvoke)");
+        sb.AppendLine("                    {");
+        sb.AppendLine($"                        base.{method.MethodName}({baseArgs});");
+        sb.AppendLine("                    }");
+        sb.AppendLine("                }");
+        sb.AppendLine("            }");
+        sb.AppendLine();
+        sb.AppendLine("            InvokeChain();");
+    }
+
+    private void GenerateNestedCallChainWithReturn(StringBuilder sb, MethodInterceptInfo method)
+    {
+        var baseArgs = string.Join(", ", method.Parameters.Select(p => p.Name));
+        var methodField = $"_{ToCamelCase(method.MethodName)}Method";
+
+        sb.AppendLine("            void InvokeChain()");
+        sb.AppendLine("            {");
+        sb.AppendLine("                if (index < allInterceptors.Count)");
+        sb.AppendLine("                {");
+        sb.AppendLine("                    var (interceptor, invokeType) = allInterceptors[index++];");
+        sb.AppendLine("                    try");
+        sb.AppendLine("                    {");
+        sb.AppendLine($"                        bool r = interceptor.OnBefore({methodField}, args);");
+        sb.AppendLine("                        results.Add(r);");
+        sb.AppendLine("                        InvokeChain();");
+        sb.AppendLine("                    }");
+        sb.AppendLine("                    finally");
+        sb.AppendLine("                    {");
+        sb.AppendLine($"                        interceptor.OnAfter({methodField}, result);");
+        sb.AppendLine("                    }");
+        sb.AppendLine("                }");
+        sb.AppendLine("                else");
+        sb.AppendLine("                {");
+        sb.AppendLine("                    // 计算是否调用原生方法");
+        sb.AppendLine("                    bool shouldInvoke = ComputeShouldInvoke(allInterceptors, results);");
+        sb.AppendLine("                    if (shouldInvoke)");
+        sb.AppendLine("                    {");
+        sb.AppendLine($"                        result = base.{method.MethodName}({baseArgs});");
+        sb.AppendLine("                    }");
+        sb.AppendLine("                }");
+        sb.AppendLine("            }");
+        sb.AppendLine();
+        sb.AppendLine("            InvokeChain();");
+        sb.AppendLine("            return result;");
     }
 
     private static string ToCamelCase(string name)

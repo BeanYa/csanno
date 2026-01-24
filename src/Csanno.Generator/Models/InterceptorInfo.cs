@@ -18,7 +18,28 @@ internal sealed class InterceptorInfo
     public string ClassName { get; set; } = string.Empty;
 
     /// <summary>
-    /// 绑定的注解类型列表
+    /// 拦截器绑定列表
     /// </summary>
-    public List<string> BoundAttributeTypes { get; set; } = new();
+    public List<InterceptorBinding> Bindings { get; set; } = new();
+
+    /// <summary>
+    /// 向后兼容：获取绑定的注解类型列表
+    /// </summary>
+    public List<string> BoundAttributeTypes => Bindings.ConvertAll(b => b.AttributeType);
+}
+
+/// <summary>
+/// 拦截器绑定信息
+/// </summary>
+internal sealed class InterceptorBinding
+{
+    /// <summary>
+    /// 绑定的注解类型
+    /// </summary>
+    public string AttributeType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 原生方法调用类型
+    /// </summary>
+    public string InvokeType { get; set; } = "Default";
 }

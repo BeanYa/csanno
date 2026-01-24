@@ -40,9 +40,10 @@ public class LoggingInterceptor : BaseInterceptor
     public static void ClearLogs() => Logs.Clear();
 
     /// <inheritdoc />
-    public override void OnBefore(MethodInfo method, object?[] args)
+    public override bool OnBefore(MethodInfo method, object?[] args)
     {
         Logs.Add($"[Before] {method.Name}({string.Join(", ", args)})");
+        return true;
     }
 
     /// <inheritdoc />
@@ -69,9 +70,10 @@ public class LoggingInterceptor2 : BaseInterceptor
     public static void ClearLogs() => Logs.Clear();
 
     /// <inheritdoc />
-    public override void OnBefore(MethodInfo method, object?[] args)
+    public override bool OnBefore(MethodInfo method, object?[] args)
     {
         Logs.Add($"[Before-2] {method.Name}({string.Join(", ", args)})");
+        return true;
     }
 
     /// <inheritdoc />
@@ -155,7 +157,7 @@ public class CacheInterceptor : BaseInterceptor
     }
 
     /// <inheritdoc />
-    public override void OnBefore(MethodInfo method, object?[] args)
+    public override bool OnBefore(MethodInfo method, object?[] args)
     {
         var key = GenerateCacheKey(method, args);
         _currentKey = key;
@@ -168,6 +170,7 @@ public class CacheInterceptor : BaseInterceptor
         {
             CacheMissCount++;
         }
+        return true;
     }
 
     /// <inheritdoc />
@@ -180,3 +183,84 @@ public class CacheInterceptor : BaseInterceptor
     }
 }
 
+/// <summary>
+/// 调用链测试注解
+/// </summary>
+public class ChainTestAttribute : BaseInterceptAttribute
+{
+}
+
+/// <summary>
+/// 调用链顺序记录拦截器（返回 true）
+/// </summary>
+[BindWith<ChainTestAttribute>]
+public class ChainInterceptor1 : BaseInterceptor
+{
+    /// <summary>
+    /// 调用顺序记录列表
+    /// </summary>
+    public static List<string> CallOrder { get; } = [];
+
+    /// <summary>
+    /// 清除记录
+    /// </summary>
+    public static void Clear() => CallOrder.Clear();
+
+    /// <inheritdoc />
+    public override bool OnBefore(MethodInfo method, object?[] args)
+    {
+        CallOrder.Add("I1.OnBefore");
+        return true;
+    }
+
+    /// <inheritdoc />
+    public override void OnAfter(MethodInfo method, object? result)
+    {
+        CallOrder.Add("I1.OnAfter");
+    }
+}
+
+/// <summary>
+/// 调用链顺序记录拦截器（返回 false，阻止原生方法执行）
+/// </summary>
+[BindWith<ChainTestAttribute>]
+public class ChainInterceptor2 : BaseInterceptor
+{
+    /// <summary>
+    /// 是否返回 true（允许调用原生方法）
+    /// </summary>
+    public static bool ShouldContinue { get; set; } = true;
+
+    /// <inheritdoc />
+    public override bool OnBefore(MethodInfo method, object?[] args)
+    {
+        ChainInterceptor1.CallOrder.Add("I2.OnBefore");
+        return ShouldContinue;
+    }
+
+    /// <inheritdoc />
+    public override void OnAfter(MethodInfo method, object? result)
+    {
+        ChainInterceptor1.CallOrder.Add("I2.OnAfter");
+    }
+}
+
+/// <summary>
+/// 调用链顺序记录拦截器（MustInvoke 模式）
+/// </summary>
+[BindWith<ChainTestAttribute>(InvokeType = InvokeType.MustInvoke)]
+public class ChainInterceptor3MustInvoke : BaseInterceptor
+{
+    /// <inheritdoc />
+    public override bool OnBefore(MethodInfo method, object?[] args)
+    {
+        ChainInterceptor1.CallOrder.Add("I3.OnBefore");
+        return true;
+    }
+
+    /// <inheritdoc />
+    public override void OnAfter(MethodInfo method, object? result)
+    {
+        ChainInterceptor1.CallOrder.Add("I3.OnAfter");
+    }
+}

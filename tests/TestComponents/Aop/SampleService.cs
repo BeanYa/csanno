@@ -52,6 +52,16 @@ public class SampleService
         // 模拟耗时操作
         return input * input;
     }
+
+    /// <summary>
+    /// 获取时间戳（带缓存拦截）
+    /// 每次调用都会生成新的时间戳，但缓存会保证相同参数返回相同值
+    /// </summary>
+    [Caching]
+    public virtual long GetTimestamp(string key)
+    {
+        return DateTime.UtcNow.Ticks;
+    }
 }
 
 /// <summary>
@@ -71,5 +81,32 @@ public class ServiceWithDependency
     public virtual string Format(string message)
     {
         return $"{_prefix}: {message}";
+    }
+}
+
+/// <summary>
+/// 调用链测试服务
+/// </summary>
+[Component]
+public class ChainTestService
+{
+    /// <summary>
+    /// 原生方法是否被调用的标记
+    /// </summary>
+    public static bool OriginalMethodCalled { get; private set; }
+
+    /// <summary>
+    /// 清除状态
+    /// </summary>
+    public static void Clear() => OriginalMethodCalled = false;
+
+    /// <summary>
+    /// 测试方法（带调用链测试注解）
+    /// </summary>
+    [ChainTest]
+    public virtual int TestMethod(int value)
+    {
+        OriginalMethodCalled = true;
+        return value * 2;
     }
 }

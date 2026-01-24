@@ -62,11 +62,14 @@ public sealed class InterceptorGenerator : IIncrementalGenerator
         if (!implementsInterceptor) return null;
 
         // 获取所有 [BindWith] 特性
-        var boundAttributes = new List<string>();
+        var bindings = new List<InterceptorBinding>();
         foreach (var attr in classSymbol.GetAttributes())
         {
             var attrName = attr.AttributeClass?.Name;
             var attrFullName = attr.AttributeClass?.ToDisplayString();
+
+            string? attributeType = null;
+            string invokeType = "Default";
 
             // 处理泛型 BindWithAttribute<T>
             if (attrName == "BindWithAttribute" && attr.AttributeClass?.IsGenericType == true)
@@ -74,7 +77,7 @@ public sealed class InterceptorGenerator : IIncrementalGenerator
                 var typeArg = attr.AttributeClass.TypeArguments.FirstOrDefault();
                 if (typeArg is not null)
                 {
-                    boundAttributes.Add(typeArg.ToDisplayString());
+                    attributeType = typeArg.ToDisplayString();
                 }
             }
             // 处理非泛型 BindWithAttribute(typeof(T))
@@ -83,20 +86,47 @@ public sealed class InterceptorGenerator : IIncrementalGenerator
                 var typeArg = attr.ConstructorArguments[0].Value;
                 if (typeArg is INamedTypeSymbol namedType)
                 {
-                    boundAttributes.Add(namedType.ToDisplayString());
+                    attributeType = namedType.ToDisplayString();
                 }
             }
+
+            if (attributeType is null) continue;
+
+            // 解析 InvokeType 属性
+            foreach (var namedArg in attr.NamedArguments)
+            {
+                if (namedArg.Key == "InvokeType" && namedArg.Value.Value is int invokeTypeValue)
+                {
+                    invokeType = invokeTypeValue switch
+                    {
+                        0 => "Default",
+                        1 => "MustInvoke",
+                        2 => "NeverInvoke",
+                        3 => "WhenAllTrue",
+                        4 => "WhenAnyFalse",
+                        5 => "WhenAnyTrue",
+                        _ => "Default"
+                    };
+                }
+            }
+
+            bindings.Add(new InterceptorBinding
+            {
+                AttributeType = attributeType,
+                InvokeType = invokeType
+            });
         }
 
-        if (boundAttributes.Count == 0) return null;
+        if (bindings.Count == 0) return null;
 
         return new InterceptorInfo
         {
             FullTypeName = classSymbol.ToDisplayString(),
             ClassName = classSymbol.Name,
-            BoundAttributeTypes = boundAttributes
+            Bindings = bindings
         };
     }
+
 
     private static ProxyInfo? TryGetProxyInfo(GeneratorSyntaxContext context)
     {
