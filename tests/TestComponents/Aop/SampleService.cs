@@ -110,3 +110,40 @@ public class ChainTestService
         return value * 2;
     }
 }
+
+/// <summary>
+/// 异常处理测试服务
+/// </summary>
+[Component]
+public class ExceptionTestService
+{
+    /// <summary>
+    /// 原生方法是否被调用的标记
+    /// </summary>
+    public static bool OriginalMethodCalled { get; private set; }
+
+    /// <summary>
+    /// 清除状态
+    /// </summary>
+    public static void Clear() => OriginalMethodCalled = false;
+
+    /// <summary>
+    /// 测试方法（带异常测试注解）
+    /// </summary>
+    [ExceptionTest]
+    public virtual int TestMethod(int value)
+    {
+        OriginalMethodCalled = true;
+        return value * 2;
+    }
+
+    /// <summary>
+    /// 无返回值的测试方法
+    /// </summary>
+    [ExceptionTest]
+    public virtual void VoidMethod()
+    {
+        OriginalMethodCalled = true;
+    }
+}
+
