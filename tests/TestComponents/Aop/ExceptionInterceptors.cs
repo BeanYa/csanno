@@ -48,7 +48,7 @@ public class ThrowingOnBeforeInterceptor : BaseInterceptor
     }
 
     /// <inheritdoc />
-    public override bool OnBefore(MethodInfo method, object?[] args)
+    public override bool OnBefore(MethodInfo method, object?[] args, InvokeResult invokeResult)
     {
         CallOrder.Add("OnBefore");
         if (ShouldThrow)
@@ -65,7 +65,7 @@ public class ThrowingOnBeforeInterceptor : BaseInterceptor
     }
 
     /// <inheritdoc />
-    public override bool OnBeforeException(MethodInfo method, object?[] args, Exception exception)
+    public override bool OnBeforeException(MethodInfo method, object?[] args, Exception exception, InvokeResult invokeResult)
     {
         CallOrder.Add("OnBeforeException");
         CaughtExceptions.Add(exception);
@@ -113,7 +113,7 @@ public class ThrowingOnAfterInterceptor : BaseInterceptor
     }
 
     /// <inheritdoc />
-    public override bool OnBefore(MethodInfo method, object?[] args)
+    public override bool OnBefore(MethodInfo method, object?[] args, InvokeResult invokeResult)
     {
         CallOrder.Add("OnBefore");
         return true;
@@ -130,7 +130,7 @@ public class ThrowingOnAfterInterceptor : BaseInterceptor
     }
 
     /// <inheritdoc />
-    public override bool OnBeforeException(MethodInfo method, object?[] args, Exception exception)
+    public override bool OnBeforeException(MethodInfo method, object?[] args, Exception exception, InvokeResult invokeResult)
     {
         CallOrder.Add("OnBeforeException");
         CaughtExceptions.Add(exception);

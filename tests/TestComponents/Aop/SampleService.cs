@@ -62,6 +62,15 @@ public class SampleService
     {
         return DateTime.UtcNow.Ticks;
     }
+
+    /// <summary>
+    /// 获取时间戳（无参数版本，用于缓存测试）
+    /// </summary>
+    [Caching]
+    public virtual long GetTimestamp()
+    {
+        return DateTime.UtcNow.Ticks;
+    }
 }
 
 /// <summary>
