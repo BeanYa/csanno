@@ -2,29 +2,31 @@ using NUnit.Framework;
 using Autofac;
 using Csanno.Tests.Registration.Lifetime;
 
-namespace Csanno.Tests;
-
-/// <summary>
-/// Scoped 生命周期测试
-/// </summary>
-[TestFixture]
-public class ScopedLifetimeTests
+namespace Csanno.Tests
 {
+
     /// <summary>
-    /// 测试用例：Scoped 生命周期 - 同一作用域内返回同一实例
+    /// Scoped 生命周期测试
     /// </summary>
-    [Test]
-    public void Scoped_Lifetime_Should_Return_Same_Instance_Within_Scope()
+    [TestFixture]
+    public class ScopedLifetimeTests
     {
-        // Arrange
-        var container = ContainerFixture.CreateContainer();
+        /// <summary>
+        /// 测试用例：Scoped 生命周期 - 同一作用域内返回同一实例
+        /// </summary>
+        [Test]
+        public void Scoped_Lifetime_Should_Return_Same_Instance_Within_Scope()
+        {
+            // Arrange
+            var container = ContainerFixture.CreateContainer();
 
-        // Act
-        using var scope = container.BeginLifetimeScope();
-        var instance1 = scope.Resolve<ScopedComponent>();
-        var instance2 = scope.Resolve<ScopedComponent>();
+            // Act
+            using var scope = container.BeginLifetimeScope();
+            var instance1 = scope.Resolve<ScopedComponent>();
+            var instance2 = scope.Resolve<ScopedComponent>();
 
-        // Assert
-        Assert.That(instance1, Is.SameAs(instance2));
+            // Assert
+            Assert.That(instance1, Is.SameAs(instance2));
+        }
     }
 }
