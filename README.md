@@ -18,7 +18,6 @@
 
 Development tools and methods used:
 - Vibe Coding
-- OpenSpec for specification-driven development
 - Claude Code + GLM-4.7
 - GitHub Copilot for code completion
 - Antigravity + Claude Opus 4.5
@@ -30,7 +29,7 @@ Originally, I manually implemented a project called `csharp-annotation`, attempt
 - **Higher code quality**: Clear structure, standardized naming, comprehensive comments
 - **More complete features**: Covers various Autofac lifecycle modes
 - **Thorough testing**: Full coverage including edge cases and exception handling
-- **Standardized documentation**: Uses OpenSpec for specification-driven development
+- **Standardized documentation**: Clear structure and synchronized project docs
 
 This project demonstrates the enormous potential of AI-assisted programming—not just code generation, but full participation in architecture design and testing.
 
@@ -402,7 +401,7 @@ owned.Value.DoWork();
 
 ## Development & Testing
 
-This project uses **OpenSpec specification-driven development** and **Claude Code native Plan mode**, with complete test coverage for all features.
+This project uses **Claude Code native Plan mode**, with complete test coverage for all features.
 
 ### Development Mode
 
@@ -431,18 +430,6 @@ This project extensively uses Claude Code's native Plan mode for architecture de
 - Roslyn Source Generator complete architecture design
 - Component scanning and registration logic
 - Lifecycle management mechanism
-
-#### 2. OpenSpec Driven
-
-Using OpenSpec for feature specification management:
-
-```bash
-# View specifications
-cat openspec/active/*.md
-
-# Create new specification
-# Create proposal in openspec/proposals/
-```
 
 ### Testing
 
@@ -487,7 +474,6 @@ Csanno/
 │       ├── Owned/           # Owned instance tests
 │       ├── Dependencies/    # Dependency injection tests
 │       └── EdgeCases/       # Edge case tests
-└── openspec/                # OpenSpec specification documents
 ```
 
 ### Source Generator How It Works
