@@ -47,3 +47,13 @@ jobs:
 
     - name: Publish to NuGet
       run: dotnet nuget push nupkgs/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.get_version.outputs.version }}
+        name: Release ${{ steps.get_version.outputs.version }}
+        files: nupkgs/*.nupkg
+        generate_release_notes: true
+      env:
+        GH_TOKEN: ${{ secrets.GH_TOKEN }}
