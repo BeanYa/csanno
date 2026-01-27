@@ -1,8 +1,8 @@
 ** 本项目全程使用Vibe Coding，测试学习AI能力和探索Vibe Coding用。
 
-# Csanno
+#> C# Annotation-based Component Registration - Spring-style Development Experience for Autofac
 
-> C# 注解式组件注册 - 让 Autofac 拥有 Spring 风格的开发体验
+![Project Structure](images/project_structure.png)
 
 [![Build](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
 [![Autofac](https://img.shields.io/badge/Autofac-8.0-blue.svg)](https://autofac.org/)
@@ -88,11 +88,15 @@ Csanno 现在支持 **Roslyn Source Generator**，在编译时生成组件注册
 - **智能过滤**：自动排除静态类、抽象类、无公共构造函数的类
 - **AOP 拦截**：支持方法前后拦截，编译期生成代理类
 
-### 🎯 AOP 方法拦截
+### 🎯 AOP 方法拦截 (AOP Method Interception)
 
-Csanno 支持基于 Source Generator 的 AOP 功能，在编译期生成代理类，实现方法前后拦截：
+Csanno 支持基于 Source Generator 的 AOP 功能，在编译时生成用于方法前后拦截的代理类：
 
-- **零运行时反射**：代理类在编译期生成
+![AOP Onion Model](images/aop_model.png)
+
+*上图展示了洋葱模型的执行流程：拦截器层层包裹原始方法，在方法调用前后分别执行逻辑。*
+
+- **零运行时反射**：编译时生成代理类
 - **不依赖外部库**：无需 Castle.DynamicProxy 等第三方库
 - **多拦截器支持**：同一注解可绑定多个拦截器
 - **嵌套调用链**：洋葱模型，OnBefore/OnAfter 按嵌套顺序调用
