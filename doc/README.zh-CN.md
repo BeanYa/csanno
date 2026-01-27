@@ -16,7 +16,6 @@
 
 使用以下工具和方法进行开发：
 - Vibe Coding
-- OpenSpec 进行规范驱动的开发
 - Claude Code + GLM-4.7
 - GitHub Copilot 进行代码补全
 - Antigravity + Claude Opus 4.5
@@ -28,7 +27,7 @@
 - **代码质量更高**：结构清晰，命名规范，注释完善
 - **功能更加完整**：覆盖了 Autofac 的各种生命周期模式
 - **测试非常全面**：包含边界情况、异常处理等全方位测试覆盖
-- **文档规范**：使用了 OpenSpec 进行规范驱动的开发
+- **文档规范**：结构清晰、内容与项目同步
 
 这个项目证明了 AI 辅助编程的巨大潜力——不仅是代码生成，更是架构设计和测试的全面参与。
 
@@ -400,7 +399,7 @@ owned.Value.DoWork();
 
 ## 开发与测试
 
-该项目采用 **OpenSpec 规范驱动开发** 和 **Claude Code 原生 Plan 模式**，所有功能都有完整的测试覆盖。
+该项目采用 **Claude Code 原生 Plan 模式**，所有功能都有完整的测试覆盖。
 
 ### 开发模式
 
@@ -429,18 +428,6 @@ owned.Value.DoWork();
 - Roslyn Source Generator 完整架构设计
 - 组件扫描和注册逻辑
 - 生命周期管理机制
-
-#### 2. OpenSpec 规范驱动
-
-使用 OpenSpec 进行功能规范管理：
-
-```bash
-# 查看规范
-cat openspec/active/*.md
-
-# 创建新规范
-# 在 openspec/proposals/ 中创建提案
-```
 
 ### 测试
 
@@ -485,7 +472,6 @@ Csanno/
 │       ├── Owned/           # Owned 实例测试
 │       ├── Dependencies/    # 依赖注入测试
 │       └── EdgeCases/       # 边界情况测试
-└── openspec/                # OpenSpec 规范文档
 ```
 
 ### Source Generator 工作原理
