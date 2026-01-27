@@ -53,13 +53,19 @@ public sealed class InterceptorGenerator : IIncrementalGenerator
     private static InterceptorInfo? TryGetInterceptorInfo(GeneratorSyntaxContext context)
     {
         var symbol = context.SemanticModel.GetDeclaredSymbol(context.Node);
-        if (symbol is not INamedTypeSymbol classSymbol) return null;
+        if (symbol is not INamedTypeSymbol classSymbol)
+        {
+            return null;
+        }
 
         // 检查是否实现 IInterceptor 接口
         var implementsInterceptor = classSymbol.AllInterfaces
             .Any(i => i.Name == "IInterceptor" || i.ToDisplayString() == "Csanno.Attributes.IInterceptor");
 
-        if (!implementsInterceptor) return null;
+        if (!implementsInterceptor)
+        {
+            return null;
+        }
 
         // 获取所有 [BindWith] 特性
         var bindings = new List<InterceptorBinding>();
@@ -90,7 +96,10 @@ public sealed class InterceptorGenerator : IIncrementalGenerator
                 }
             }
 
-            if (attributeType is null) continue;
+            if (attributeType is null)
+            {
+                continue;
+            }
 
             // 解析 InvokeType 属性
             foreach (var namedArg in attr.NamedArguments)
@@ -117,7 +126,10 @@ public sealed class InterceptorGenerator : IIncrementalGenerator
             });
         }
 
-        if (bindings.Count == 0) return null;
+        if (bindings.Count == 0)
+        {
+            return null;
+        }
 
         return new InterceptorInfo
         {
@@ -131,10 +143,16 @@ public sealed class InterceptorGenerator : IIncrementalGenerator
     private static ProxyInfo? TryGetProxyInfo(GeneratorSyntaxContext context)
     {
         var symbol = context.SemanticModel.GetDeclaredSymbol(context.Node);
-        if (symbol is not INamedTypeSymbol classSymbol) return null;
+        if (symbol is not INamedTypeSymbol classSymbol)
+        {
+            return null;
+        }
 
         // 排除静态类和抽象类
-        if (classSymbol.IsStatic || classSymbol.IsAbstract) return null;
+        if (classSymbol.IsStatic || classSymbol.IsAbstract)
+        {
+            return null;
+        }
 
         // 检查是否有 [Component] 特性
         var hasComponent = classSymbol.GetAttributes()
@@ -147,7 +165,10 @@ public sealed class InterceptorGenerator : IIncrementalGenerator
                        fullName?.EndsWith(".ComponentAttribute") == true;
             });
 
-        if (!hasComponent) return null;
+        if (!hasComponent)
+        {
+            return null;
+        }
 
         // 查找需要拦截的方法（带有拦截注解且是 virtual 的方法）
         var interceptedMethods = new List<MethodInterceptInfo>();
@@ -179,7 +200,10 @@ public sealed class InterceptorGenerator : IIncrementalGenerator
             }
         }
 
-        if (interceptedMethods.Count == 0) return null;
+        if (interceptedMethods.Count == 0)
+        {
+            return null;
+        }
 
         // 获取构造函数信息
         var constructors = classSymbol.Constructors
@@ -221,8 +245,15 @@ public sealed class InterceptorGenerator : IIncrementalGenerator
         {
             // 排除系统特性
             var attrFullName = attr.AttributeClass?.ToDisplayString();
-            if (attrFullName is null) continue;
-            if (attrFullName.StartsWith("System.")) continue;
+            if (attrFullName is null)
+            {
+                continue;
+            }
+
+            if (attrFullName.StartsWith("System."))
+            {
+                continue;
+            }
 
             // 添加所有用户自定义特性（可能是拦截器绑定的注解）
             result.Add(attrFullName);
@@ -253,7 +284,10 @@ public sealed class InterceptorGenerator : IIncrementalGenerator
 
         context.AddSource("AopGeneratorDebug.g.cs", debugInfo.ToString());
 
-        if (proxies.Count == 0) return;
+        if (proxies.Count == 0)
+        {
+            return;
+        }
 
         // 生成代理类
         var emitter = new ProxyEmitter();

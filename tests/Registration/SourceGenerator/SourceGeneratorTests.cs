@@ -3,6 +3,12 @@ using System.Reflection;
 using System.IO;
 using System.Text.RegularExpressions;
 using Autofac;
+using Csanno.Tests.Registration.Dependencies;
+using Csanno.Tests.Registration.EdgeCases;
+using Csanno.Tests.Registration.Lifetime;
+using Csanno.Tests.Registration.Metadata;
+using Csanno.Tests.Registration.Owned;
+using Csanno.Tests.Registration.Services;
 
 namespace Csanno.Tests;
 
@@ -12,6 +18,13 @@ namespace Csanno.Tests;
 [TestFixture]
 public class SourceGeneratorTests
 {
+    private const string DependenciesNamespace = "Csanno.Tests.Registration.Dependencies";
+    private const string EdgeCasesNamespace = "Csanno.Tests.Registration.EdgeCases";
+    private const string LifetimeNamespace = "Csanno.Tests.Registration.Lifetime";
+    private const string MetadataNamespace = "Csanno.Tests.Registration.Metadata";
+    private const string OwnedNamespace = "Csanno.Tests.Registration.Owned";
+    private const string ServicesNamespace = "Csanno.Tests.Registration.Services";
+
     #region 1. 生成器加载测试
 
     /// <summary>
@@ -138,36 +151,36 @@ public class SourceGeneratorTests
     [Test]
     public void Generated_Code_Should_Register_All_Expected_Components()
     {
-        // Arrange - 定义预期的所有测试组件
-        var expectedComponents = new[]
+        // Arrange - 定义预期的所有测试组件及其命名空间
+        var expectedComponents = new Dictionary<string, string>
         {
-            "ComponentWithMetadata",
-            "ComponentWithMultipleMetadataTypes",
-            "ConflictingLifetimeComponent",
-            "Consumer",
-            "ConsumerWithMissingDependency",
-            "DefaultLifetimeComponent",
-            "DisposableOwnedComponent",
-            "MatchingScopeComponent",
-            "MultiServiceComponent",
-            "MultiTagScopeComponent",
-            "OwnedComponent",
-            "ScopedComponent",
-            "ServiceWithInterface",
-            "SimpleComponent",
-            "SingletonComponent",
-            "TopLevelConsumer",
-            "TransientComponent"
+            ["ComponentWithMetadata"] = MetadataNamespace,
+            ["ComponentWithMultipleMetadataTypes"] = MetadataNamespace,
+            ["ConflictingLifetimeComponent"] = EdgeCasesNamespace,
+            ["Consumer"] = DependenciesNamespace,
+            ["ConsumerWithMissingDependency"] = EdgeCasesNamespace,
+            ["DefaultLifetimeComponent"] = EdgeCasesNamespace,
+            ["DisposableOwnedComponent"] = OwnedNamespace,
+            ["MatchingScopeComponent"] = OwnedNamespace,
+            ["MultiServiceComponent"] = ServicesNamespace,
+            ["MultiTagScopeComponent"] = OwnedNamespace,
+            ["OwnedComponent"] = OwnedNamespace,
+            ["ScopedComponent"] = LifetimeNamespace,
+            ["ServiceWithInterface"] = ServicesNamespace,
+            ["SimpleComponent"] = LifetimeNamespace,
+            ["SingletonComponent"] = LifetimeNamespace,
+            ["TopLevelConsumer"] = DependenciesNamespace,
+            ["TransientComponent"] = LifetimeNamespace
         };
 
         // Act - 读取生成的代码文件
         var generatedCode = ReadGeneratedRegistrationCode();
 
         // Assert - 验证每个组件都在生成代码中
-        foreach (var component in expectedComponents)
+        foreach (var (component, ns) in expectedComponents)
         {
-            Assert.That(generatedCode, Does.Contain($"builder.RegisterType<Csanno.Tests.{component}>"),
-                $"生成的代码应该包含 {component} 的注册");
+            Assert.That(generatedCode, Does.Contain($"builder.RegisterType<{ns}.{component}>"),
+                $"生成的代码应该包含 {ns}.{component} 的注册");
         }
     }
 
@@ -217,7 +230,7 @@ public class SourceGeneratorTests
         var generatedCode = ReadGeneratedRegistrationCode();
 
         // Assert
-        Assert.That(generatedCode, Does.Contain("builder.RegisterType<Csanno.Tests.TransientComponent>().InstancePerDependency()"),
+        Assert.That(generatedCode, Does.Contain($"builder.RegisterType<{LifetimeNamespace}.TransientComponent>().InstancePerDependency()"),
             "TransientComponent 应该使用 InstancePerDependency");
     }
 
@@ -231,7 +244,7 @@ public class SourceGeneratorTests
         var generatedCode = ReadGeneratedRegistrationCode();
 
         // Assert
-        Assert.That(generatedCode, Does.Contain("builder.RegisterType<Csanno.Tests.ScopedComponent>().InstancePerLifetimeScope()"),
+        Assert.That(generatedCode, Does.Contain($"builder.RegisterType<{LifetimeNamespace}.ScopedComponent>().InstancePerLifetimeScope()"),
             "ScopedComponent 应该使用 InstancePerLifetimeScope");
     }
 
@@ -245,7 +258,7 @@ public class SourceGeneratorTests
         var generatedCode = ReadGeneratedRegistrationCode();
 
         // Assert
-        Assert.That(generatedCode, Does.Contain("builder.RegisterType<Csanno.Tests.SingletonComponent>().SingleInstance()"),
+        Assert.That(generatedCode, Does.Contain($"builder.RegisterType<{LifetimeNamespace}.SingletonComponent>().SingleInstance()"),
             "SingletonComponent 应该使用 SingleInstance");
     }
 
@@ -259,7 +272,7 @@ public class SourceGeneratorTests
         var generatedCode = ReadGeneratedRegistrationCode();
 
         // Assert
-        Assert.That(generatedCode, Does.Contain("builder.RegisterType<Csanno.Tests.OwnedComponent>().InstancePerOwned<Csanno.Tests.OwnedComponent>()"),
+        Assert.That(generatedCode, Does.Contain($"builder.RegisterType<{OwnedNamespace}.OwnedComponent>().InstancePerOwned<{OwnedNamespace}.OwnedComponent>()"),
             "OwnedComponent 应该使用 InstancePerOwned");
     }
 
@@ -273,7 +286,7 @@ public class SourceGeneratorTests
         var generatedCode = ReadGeneratedRegistrationCode();
 
         // Assert
-        Assert.That(generatedCode, Does.Contain("builder.RegisterType<Csanno.Tests.DisposableOwnedComponent>().InstancePerOwned<Csanno.Tests.DisposableOwnedComponent>()"),
+        Assert.That(generatedCode, Does.Contain($"builder.RegisterType<{OwnedNamespace}.DisposableOwnedComponent>().InstancePerOwned<{OwnedNamespace}.DisposableOwnedComponent>()"),
             "DisposableOwnedComponent 应该使用 InstancePerOwned");
     }
 
@@ -287,9 +300,9 @@ public class SourceGeneratorTests
         var generatedCode = ReadGeneratedRegistrationCode();
 
         // Assert
-        Assert.That(generatedCode, Does.Contain("builder.RegisterType<Csanno.Tests.MatchingScopeComponent>().InstancePerMatchingLifetimeScope(\"request\")"),
+        Assert.That(generatedCode, Does.Contain($"builder.RegisterType<{OwnedNamespace}.MatchingScopeComponent>().InstancePerMatchingLifetimeScope(\"request\")"),
             "MatchingScopeComponent 应该使用 InstancePerMatchingLifetimeScope(\"request\")");
-        Assert.That(generatedCode, Does.Contain("builder.RegisterType<Csanno.Tests.MultiTagScopeComponent>().InstancePerMatchingLifetimeScope(\"tag1\", \"tag2\")"),
+        Assert.That(generatedCode, Does.Contain($"builder.RegisterType<{OwnedNamespace}.MultiTagScopeComponent>().InstancePerMatchingLifetimeScope(\"tag1\", \"tag2\")"),
             "MultiTagScopeComponent 应该支持多个标签");
     }
 
@@ -307,7 +320,7 @@ public class SourceGeneratorTests
         var generatedCode = ReadGeneratedRegistrationCode();
 
         // Assert
-        Assert.That(generatedCode, Does.Contain(".As<Csanno.Tests.IService>()"),
+        Assert.That(generatedCode, Does.Contain($".As<{ServicesNamespace}.IService>()"),
             "ServiceWithInterface 应该注册为 IService 接口");
     }
 
@@ -321,12 +334,12 @@ public class SourceGeneratorTests
         var generatedCode = ReadGeneratedRegistrationCode();
 
         // Assert
-        Assert.That(generatedCode, Does.Contain("builder.RegisterType<Csanno.Tests.MultiServiceComponent>().InstancePerDependency()"),
+        Assert.That(generatedCode, Does.Contain($"builder.RegisterType<{ServicesNamespace}.MultiServiceComponent>().InstancePerDependency()"),
             "MultiServiceComponent 的注册应该存在");
 
         // 验证包含两个接口映射
-        var service1 = generatedCode.Contains(".As<Csanno.Tests.IService1>()");
-        var service2 = generatedCode.Contains(".As<Csanno.Tests.IService2>()");
+        var service1 = generatedCode.Contains($".As<{ServicesNamespace}.IService1>()");
+        var service2 = generatedCode.Contains($".As<{ServicesNamespace}.IService2>()");
         Assert.That(service1 && service2, Is.True,
             "MultiServiceComponent 应该同时注册为 IService1 和 IService2");
     }
@@ -501,7 +514,7 @@ public class SourceGeneratorTests
         var generatedComponentTypes = new HashSet<string>();
         foreach (Match match in Regex.Matches(
             generatedCode,
-            @"builder\.RegisterType<Csanno\.Tests\.([A-Za-z0-9_]+)>"))
+            @"builder\.RegisterType<[^>]*\.([A-Za-z0-9_]+)>"))
         {
             var className = match.Groups[1].Value;
             generatedComponentTypes.Add(className);
@@ -606,15 +619,19 @@ public class SourceGeneratorTests
         if (Directory.Exists(testsFolderFromAssembly))
         {
             sb.AppendLine($"Contents of '{testsFolderFromAssembly}':");
-            foreach (var d in Directory.GetDirectories(testsFolderFromAssembly)) 
+            foreach (var d in Directory.GetDirectories(testsFolderFromAssembly))
+            {
                 sb.AppendLine($"  [DIR] {Path.GetFileName(d)}");
-            
+            }
+
             var objPath = Path.Combine(testsFolderFromAssembly, "obj");
             if (Directory.Exists(objPath))
             {
                 sb.AppendLine($"Contents of '{objPath}':");
-                foreach (var d in Directory.GetDirectories(objPath)) 
+                foreach (var d in Directory.GetDirectories(objPath))
+                {
                     sb.AppendLine($"  [DIR] {Path.GetFileName(d)}");
+                }
             }
         }
 
