@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using Csanno.Generator.Models;
 
@@ -64,8 +66,8 @@ internal sealed class ProxyEmitter
             var paramTypes = method.Parameters.Count > 0
                 ? string.Join(", ", method.Parameters.Select(p => $"typeof({p.Type})"))
                 : "";
-            var fieldSuffix = method.Parameters.Count > 0 ? $"_{method.Parameters.Count}" : "";
-            sb.AppendLine($"        private static readonly MethodInfo _{ToCamelCase(method.MethodName)}{fieldSuffix}Method = typeof({proxy.FullTypeName}).GetMethod(\"{method.MethodName}\", new System.Type[] {{ {paramTypes} }})!;");
+            var methodFieldName = GetMethodFieldName(method);
+            sb.AppendLine($"        private static readonly MethodInfo {methodFieldName} = typeof({proxy.FullTypeName}).GetMethod(\"{method.MethodName}\", new System.Type[] {{ {paramTypes} }})!;");
         }
         sb.AppendLine();
 
@@ -270,8 +272,7 @@ internal sealed class ProxyEmitter
     private void GenerateNestedCallChainVoid(StringBuilder sb, MethodInterceptInfo method)
     {
         var baseArgs = string.Join(", ", method.Parameters.Select(p => p.Name));
-        var fieldSuffix = method.Parameters.Count > 0 ? $"_{method.Parameters.Count}" : "";
-        var methodField = $"_{ToCamelCase(method.MethodName)}{fieldSuffix}Method";
+        var methodField = GetMethodFieldName(method);
 
         sb.AppendLine("            void InvokeChain()");
         sb.AppendLine("            {");
@@ -324,8 +325,7 @@ internal sealed class ProxyEmitter
     private void GenerateNestedCallChainWithReturn(StringBuilder sb, MethodInterceptInfo method)
     {
         var baseArgs = string.Join(", ", method.Parameters.Select(p => p.Name));
-        var fieldSuffix = method.Parameters.Count > 0 ? $"_{method.Parameters.Count}" : "";
-        var methodField = $"_{ToCamelCase(method.MethodName)}{fieldSuffix}Method";
+        var methodField = GetMethodFieldName(method);
 
         sb.AppendLine("            void InvokeChain()");
         sb.AppendLine("            {");
@@ -383,6 +383,42 @@ internal sealed class ProxyEmitter
         sb.AppendLine($"                return ({method.ReturnType})invokeResult.Value!;");
         sb.AppendLine("            }");
         sb.AppendLine("            return result;");
+    }
+
+    private static string GetMethodFieldName(MethodInterceptInfo method)
+    {
+        var suffix = GetMethodFieldSuffix(method);
+        return $"_{ToCamelCase(method.MethodName)}{suffix}Method";
+    }
+
+    private static string GetMethodFieldSuffix(MethodInterceptInfo method)
+    {
+        if (method.Parameters.Count == 0)
+        {
+            return "";
+        }
+
+        // 使用参数类型签名的稳定哈希，避免同参数数量但不同签名的重载冲突
+        var signature = string.Join("|", method.Parameters.Select(p => p.Type));
+        var signatureBytes = Encoding.UTF8.GetBytes(signature);
+        byte[] hashBytes;
+        using (var sha = SHA256.Create())
+        {
+            hashBytes = sha.ComputeHash(signatureBytes);
+        }
+        var shortHash = ToHex(hashBytes, 6);
+        return $"_{method.Parameters.Count}_{shortHash}";
+    }
+
+    private static string ToHex(byte[] bytes, int length)
+    {
+        var actualLength = Math.Min(length, bytes.Length);
+        var sb = new StringBuilder(actualLength * 2);
+        for (var i = 0; i < actualLength; i++)
+        {
+            sb.Append(bytes[i].ToString("x2"));
+        }
+        return sb.ToString();
     }
 
     private static string ToCamelCase(string name)
