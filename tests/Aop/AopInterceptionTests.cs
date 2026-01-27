@@ -61,6 +61,27 @@ public class AopInterceptionTests
     }
 
     [Test]
+    public void Interceptor_ShouldHandleOverloads_WithSameParameterCountDifferentSignature()
+    {
+        // Arrange
+        var builder = new ContainerBuilder();
+        builder.RegisterComponents();
+        builder.RegisterAopProxies();
+        var container = builder.Build();
+        var service = container.Resolve<OverloadService>();
+
+        // Act
+        var result1 = service.Echo(1, "x");
+        var result2 = service.Echo("y", 2);
+
+        // Assert
+        Assert.That(result1, Is.EqualTo("1:x"));
+        Assert.That(result2, Is.EqualTo("y:2"));
+        Assert.That(LoggingInterceptor.Logs, Does.Contain("[Before] Echo(1, x)"));
+        Assert.That(LoggingInterceptor.Logs, Does.Contain("[Before] Echo(y, 2)"));
+    }
+
+    [Test]
     public void Interceptor_ShouldWorkWithStringReturn()
     {
         // Arrange

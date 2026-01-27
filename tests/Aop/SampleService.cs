@@ -74,6 +74,25 @@ public class SampleService
 }
 
 /// <summary>
+/// 重载方法测试服务：相同参数数量但不同参数类型顺序
+/// </summary>
+[Component]
+public class OverloadService
+{
+    [Logging]
+    public virtual string Echo(int number, string text)
+    {
+        return $"{number}:{text}";
+    }
+
+    [Logging]
+    public virtual string Echo(string text, int number)
+    {
+        return $"{text}:{number}";
+    }
+}
+
+/// <summary>
 /// 带构造函数参数的服务
 /// </summary>
 [Component]
