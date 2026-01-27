@@ -59,22 +59,40 @@ namespace Csanno.Generated
     private static ComponentInfo? TryGetComponentInfo(GeneratorSyntaxContext context)
     {
         var symbol = context.SemanticModel.GetDeclaredSymbol(context.Node);
-        if (symbol is null) return null;
+        if (symbol is null)
+        {
+            return null;
+        }
 
         // 确保是类类型
-        if (symbol is not INamedTypeSymbol classSymbol) return null;
+        if (symbol is not INamedTypeSymbol classSymbol)
+        {
+            return null;
+        }
 
         // 排除静态类
-        if (classSymbol.IsStatic) return null;
+        if (classSymbol.IsStatic)
+        {
+            return null;
+        }
 
         // 排除接口
-        if (classSymbol.TypeKind == TypeKind.Interface) return null;
+        if (classSymbol.TypeKind == TypeKind.Interface)
+        {
+            return null;
+        }
 
         // 排除抽象类
-        if (classSymbol.IsAbstract) return null;
+        if (classSymbol.IsAbstract)
+        {
+            return null;
+        }
 
         // 排除没有公共构造函数的类（Autofac 无法实例化）
-        if (!HasPublicConstructor(classSymbol)) return null;
+        if (!HasPublicConstructor(classSymbol))
+        {
+            return null;
+        }
 
         // 检查 [Component] 特性 - 使用多种匹配方式
         var hasComponent = classSymbol.GetAttributes()
@@ -87,7 +105,10 @@ namespace Csanno.Generated
                        fullName?.EndsWith(".ComponentAttribute") == true;
             });
 
-        if (!hasComponent) return null;
+        if (!hasComponent)
+        {
+            return null;
+        }
 
         return ExtractComponentInfo(classSymbol);
     }
@@ -125,9 +146,20 @@ namespace Csanno.Generated
         var attributes = classSymbol.GetAttributes();
         var attrNames = new HashSet<string>(attributes.Select(a => a.AttributeClass?.Name).Where(n => n != null)!);
 
-        if (attrNames.Contains("SingletonAttribute")) return InstanceLifetime.Singleton;
-        if (attrNames.Contains("ScopedAttribute")) return InstanceLifetime.Scoped;
-        if (attrNames.Contains("PerRequestAttribute")) return InstanceLifetime.PerRequest;
+        if (attrNames.Contains("SingletonAttribute"))
+        {
+            return InstanceLifetime.Singleton;
+        }
+
+        if (attrNames.Contains("ScopedAttribute"))
+        {
+            return InstanceLifetime.Scoped;
+        }
+
+        if (attrNames.Contains("PerRequestAttribute"))
+        {
+            return InstanceLifetime.PerRequest;
+        }
 
         var perMatching = attributes.FirstOrDefault(a =>
             a.AttributeClass?.Name == "PerMatchingLifetimeScopeAttribute");
@@ -154,7 +186,10 @@ namespace Csanno.Generated
             return InstanceLifetime.Owned;
         }
 
-        if (attrNames.Contains("TransientAttribute")) return InstanceLifetime.Transient;
+        if (attrNames.Contains("TransientAttribute"))
+        {
+            return InstanceLifetime.Transient;
+        }
 
         return InstanceLifetime.Transient;  // 默认
     }
@@ -232,11 +267,30 @@ namespace Csanno.Generated
 
     private static string ConvertToAotFriendlyExpression(TypedConstant value)
     {
-        if (value.Value is null) return "null";
-        if (value.Value is string s) return $"\"{s}\"";
-        if (value.Value is bool b) return b ? "true" : "false";
-        if (value.Value is int i) return i.ToString();
-        if (value.Value is INamedTypeSymbol type) return $"typeof({type.ToDisplayString()})";
+        if (value.Value is null)
+        {
+            return "null";
+        }
+
+        if (value.Value is string s)
+        {
+            return $"\"{s}\"";
+        }
+
+        if (value.Value is bool b)
+        {
+            return b ? "true" : "false";
+        }
+
+        if (value.Value is int i)
+        {
+            return i.ToString();
+        }
+
+        if (value.Value is INamedTypeSymbol type)
+        {
+            return $"typeof({type.ToDisplayString()})";
+        }
 
         return "null";  // 不支持的类型默认为 null
     }

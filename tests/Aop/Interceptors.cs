@@ -6,21 +6,12 @@ namespace Csanno.Tests.Aop;
 /// <summary>
 /// 日志注解，用于标记需要记录日志的方法
 /// </summary>
-public class LoggingAttribute : BaseInterceptAttribute
+public class LoggingAttribute(string additionalInfo = "") : BaseInterceptAttribute
 {
     /// <summary>
     /// 附加信息
     /// </summary>
-    public string AdditionalInfo { get; set; }
-
-    /// <summary>
-    /// 创建日志注解
-    /// </summary>
-    /// <param name="additionalInfo">附加信息</param>
-    public LoggingAttribute(string additionalInfo = "")
-    {
-        AdditionalInfo = additionalInfo;
-    }
+    public string AdditionalInfo { get; set; } = additionalInfo;
 }
 
 /// <summary>
@@ -86,21 +77,12 @@ public class LoggingInterceptor2 : BaseInterceptor
 /// <summary>
 /// 缓存注解，用于标记需要缓存结果的方法
 /// </summary>
-public class CachingAttribute : BaseInterceptAttribute
+public class CachingAttribute(int expirationSeconds = 60) : BaseInterceptAttribute
 {
     /// <summary>
     /// 缓存过期时间（秒）
     /// </summary>
-    public int ExpirationSeconds { get; set; }
-
-    /// <summary>
-    /// 创建缓存注解
-    /// </summary>
-    /// <param name="expirationSeconds">缓存过期时间（秒），默认60秒</param>
-    public CachingAttribute(int expirationSeconds = 60)
-    {
-        ExpirationSeconds = expirationSeconds;
-    }
+    public int ExpirationSeconds { get; set; } = expirationSeconds;
 }
 
 /// <summary>

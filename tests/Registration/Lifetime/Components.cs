@@ -1,6 +1,6 @@
 using Csanno.Attributes;
 
-namespace Csanno.Tests;
+namespace Csanno.Tests.Registration.Lifetime;
 
 /// <summary>
 /// 简单组件，用于基础注册测试

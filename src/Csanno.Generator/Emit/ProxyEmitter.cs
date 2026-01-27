@@ -387,7 +387,11 @@ internal sealed class ProxyEmitter
 
     private static string ToCamelCase(string name)
     {
-        if (string.IsNullOrEmpty(name)) return name;
+        if (string.IsNullOrEmpty(name))
+        {
+            return name;
+        }
+
         return char.ToLowerInvariant(name[0]) + name.Substring(1);
     }
 }

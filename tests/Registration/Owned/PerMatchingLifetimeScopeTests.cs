@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Autofac;
+using Csanno.Tests.Registration.Owned;
 
 namespace Csanno.Tests;
 

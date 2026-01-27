@@ -77,14 +77,9 @@ public class SampleService
 /// 带构造函数参数的服务
 /// </summary>
 [Component]
-public class ServiceWithDependency
+public class ServiceWithDependency(string prefix)
 {
-    private readonly string _prefix;
-
-    public ServiceWithDependency(string prefix)
-    {
-        _prefix = prefix;
-    }
+    private readonly string _prefix = prefix;
 
     [Logging]
     public virtual string Format(string message)

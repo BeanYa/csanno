@@ -35,6 +35,11 @@ indent_size = 2
 # C# files
 [*.cs]
 
+# 启用所有 Style 类诊断，便于扫描并修复
+[*.{cs,vb}]
+dotnet_analyzer_diagnostic.category-Style.severity = warning
+dotnet_diagnostic.IDE0060.severity = none
+
 # New line preferences
 csharp_new_line_before_open_brace = all
 csharp_new_line_before_else = true
