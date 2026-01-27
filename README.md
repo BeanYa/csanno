@@ -4,11 +4,13 @@
 
 > C# Annotation-based Component Registration - Spring-style Development Experience for Autofac
 
+![Project Structure](doc/images/project_structure.png)
+
 [![Build](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
 [![Autofac](https://img.shields.io/badge/Autofac-8.0-blue.svg)](https://autofac.org/)
 [![Source Generator](https://img.shields.io/badge/Source%20Generator-Supported-green.svg)](#)
 
-**[中文文档](README.zh-CN.md)**
+**[中文文档](doc/README.zh-CN.md)**
 
 ## Project Origin
 
@@ -91,6 +93,10 @@ The generator automatically detects and prefers compile-time generated code, fal
 ### 🎯 AOP Method Interception
 
 Csanno supports Source Generator-based AOP functionality, generating proxy classes at compile time for method before/after interception:
+
+![AOP Onion Model](doc/images/aop_model.png)
+
+*The diagram above illustrates the Onion Model execution flow: Interceptors wrap the original method in layers, executing logic both before and after the method call.*
 
 - **Zero runtime reflection**: Proxy classes generated at compile time
 - **No external dependencies**: No need for Castle.DynamicProxy or other third-party libraries
@@ -485,6 +491,8 @@ Csanno/
 ```
 
 ### Source Generator How It Works
+
+![Project Structure](doc/images/project_structure.png)
 
 Csanno.Generator is a Roslyn Source Generator that executes the following steps at compile time:
 
