@@ -134,5 +134,18 @@ namespace Csanno.Tests
                 container.Resolve<NonComponent>();
             });
         }
+
+        /// <summary>
+        /// 测试用例：派生类应继承 [Component] 特性并被注册
+        /// </summary>
+        [Test]
+        public void Derived_Component_Should_Inherit_Component_Attribute()
+        {
+            // Arrange
+            var container = ContainerFixture.CreateContainer();
+
+            // Act & Assert
+            Assert.That(() => container.Resolve<DerivedComponent>(), Throws.Nothing);
+        }
     }
 }

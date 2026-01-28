@@ -47,5 +47,23 @@ namespace Csanno.Tests
             // 注意：由于默认是 Transient 生命周期，解析不同的服务接口会创建新实例
             // 如果需要同一实例，需要使用 Scoped 或 Singleton
         }
+
+        /// <summary>
+        /// 测试用例：多个 ComponentAttribute.ServiceType 也应注册为多个服务
+        /// </summary>
+        [Test]
+        public void Multiple_ComponentAttribute_ServiceTypes_Should_Register_As_Multiple_Services()
+        {
+            // Arrange
+            var container = ContainerFixture.CreateContainer();
+
+            // Act
+            var service1 = container.Resolve<IComponentAttributeService1>();
+            var service2 = container.Resolve<IComponentAttributeService2>();
+
+            // Assert
+            Assert.That(service1, Is.InstanceOf<MultiComponentAttributeService>());
+            Assert.That(service2, Is.InstanceOf<MultiComponentAttributeService>());
+        }
     }
 }

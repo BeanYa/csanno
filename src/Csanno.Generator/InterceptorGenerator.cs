@@ -1,7 +1,10 @@
+using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Csanno.Generator.Emit;
 using Csanno.Generator.Models;
@@ -154,18 +157,8 @@ namespace Csanno.Generator
                 return null;
             }
 
-            // 检查是否有 [Component] 特性
-            var hasComponent = classSymbol.GetAttributes()
-                .Any(a =>
-                {
-                    var name = a.AttributeClass?.Name;
-                    var fullName = a.AttributeClass?.ToDisplayString();
-                    return name == "ComponentAttribute" ||
-                           fullName == "Csanno.Attributes.ComponentAttribute" ||
-                           fullName?.EndsWith(".ComponentAttribute") == true;
-                });
-
-            if (!hasComponent)
+            // 检查是否有 [Component] 特性（含继承/派生）
+            if (!HasComponentAttribute(classSymbol))
             {
                 return null;
             }
@@ -387,16 +380,6 @@ namespace Csanno.Generator
                 return InstanceLifetime.Singleton;
             }
 
-            if (attrNames.Contains("ScopedAttribute"))
-            {
-                return InstanceLifetime.Scoped;
-            }
-
-            if (attrNames.Contains("PerRequestAttribute"))
-            {
-                return InstanceLifetime.PerRequest;
-            }
-
             var perMatching = attributes.FirstOrDefault(a =>
                 a.AttributeClass?.Name == "PerMatchingLifetimeScopeAttribute");
             if (perMatching != null)
@@ -407,6 +390,16 @@ namespace Csanno.Generator
                     .OfType<string>()
                     .ToArray();
                 return InstanceLifetime.PerMatchingLifetimeScope;
+            }
+
+            if (attrNames.Contains("ScopedAttribute"))
+            {
+                return InstanceLifetime.Scoped;
+            }
+
+            if (attrNames.Contains("PerRequestAttribute"))
+            {
+                return InstanceLifetime.PerRequest;
             }
 
             var ownedAttr = attributes.FirstOrDefault(a =>
@@ -450,22 +443,25 @@ namespace Csanno.Generator
                 }
             }
 
-            var componentAttr = classSymbol.GetAttributes()
-                .FirstOrDefault(a => a.AttributeClass?.Name == "ComponentAttribute");
-            if (componentAttr != null)
+            var componentServiceTypes = GetComponentAttributes(classSymbol)
+                .SelectMany(attr => attr.NamedArguments)
+                .Where(kvp => kvp.Key == "ServiceType")
+                .Select(kvp => kvp.Value.Value)
+                .OfType<INamedTypeSymbol>()
+                .Distinct(SymbolEqualityComparer.Default)
+                .ToList();
+            if (componentServiceTypes.Count > 0)
             {
-                var serviceTypeProp = componentAttr.NamedArguments
-                    .FirstOrDefault(kvp => kvp.Key == "ServiceType");
-                if (serviceTypeProp.Value.Value is INamedTypeSymbol propType)
+                services.Clear();
+                foreach (var typeSymbol in componentServiceTypes)
                 {
-                    services.Clear();
                     services.Add(new ServiceInfo
                     {
-                        ServiceType = propType.ToDisplayString(),
-                        IsSelf = SymbolEqualityComparer.Default.Equals(propType, classSymbol)
+                        ServiceType = typeSymbol.ToDisplayString(),
+                        IsSelf = SymbolEqualityComparer.Default.Equals(typeSymbol, classSymbol)
                     });
-                    return services;
                 }
+                return services;
             }
 
             if (services.Count == 0)
@@ -505,9 +501,19 @@ namespace Csanno.Generator
                 return "null";
             }
 
+            if (value.Type?.TypeKind == TypeKind.Enum)
+            {
+                return $"({value.Type.ToDisplayString()}){Convert.ToString(value.Value, CultureInfo.InvariantCulture)}";
+            }
+
             if (value.Value is string s)
             {
-                return $"\"{s}\"";
+                return SymbolDisplay.FormatLiteral(s, true);
+            }
+
+            if (value.Value is char c)
+            {
+                return SymbolDisplay.FormatLiteral(c, true);
             }
 
             if (value.Value is bool b)
@@ -518,6 +524,26 @@ namespace Csanno.Generator
             if (value.Value is int i)
             {
                 return i.ToString();
+            }
+
+            if (value.Value is long l)
+            {
+                return l.ToString(CultureInfo.InvariantCulture) + "L";
+            }
+
+            if (value.Value is double d)
+            {
+                return d.ToString("R", CultureInfo.InvariantCulture) + "D";
+            }
+
+            if (value.Value is float f)
+            {
+                return f.ToString("R", CultureInfo.InvariantCulture) + "F";
+            }
+
+            if (value.Value is decimal m)
+            {
+                return m.ToString(CultureInfo.InvariantCulture) + "m";
             }
 
             if (value.Value is INamedTypeSymbol type)
@@ -542,6 +568,71 @@ namespace Csanno.Generator
                     $".InstancePerOwned<{proxy.OwnedTypeName ?? proxy.FullTypeName}>()",
                 _ => ".InstancePerDependency()"
             };
+        }
+
+        private static bool HasComponentAttribute(INamedTypeSymbol classSymbol)
+        {
+            if (HasComponentAttributeDirect(classSymbol))
+            {
+                return true;
+            }
+
+            var baseType = classSymbol.BaseType;
+            while (baseType is not null)
+            {
+                if (HasComponentAttributeDirect(baseType))
+                {
+                    return true;
+                }
+                baseType = baseType.BaseType;
+            }
+
+            return false;
+        }
+
+        private static bool HasComponentAttributeDirect(INamedTypeSymbol typeSymbol)
+        {
+            return typeSymbol.GetAttributes().Any(a => IsComponentAttribute(a.AttributeClass));
+        }
+
+        private static IEnumerable<AttributeData> GetComponentAttributes(INamedTypeSymbol classSymbol)
+        {
+            foreach (var attr in classSymbol.GetAttributes())
+            {
+                if (IsComponentAttribute(attr.AttributeClass))
+                {
+                    yield return attr;
+                }
+            }
+
+            var baseType = classSymbol.BaseType;
+            while (baseType is not null)
+            {
+                foreach (var attr in baseType.GetAttributes())
+                {
+                    if (IsComponentAttribute(attr.AttributeClass))
+                    {
+                        yield return attr;
+                    }
+                }
+                baseType = baseType.BaseType;
+            }
+        }
+
+        private static bool IsComponentAttribute(INamedTypeSymbol? attributeType)
+        {
+            var current = attributeType;
+            while (current is not null)
+            {
+                if (current.Name == "ComponentAttribute" &&
+                    (current.ToDisplayString() == "Csanno.Attributes.ComponentAttribute" ||
+                     current.ContainingNamespace.ToDisplayString() == "Csanno.Attributes"))
+                {
+                    return true;
+                }
+                current = current.BaseType;
+            }
+            return false;
         }
     }
 }

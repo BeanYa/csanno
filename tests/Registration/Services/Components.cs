@@ -38,4 +38,21 @@ namespace Csanno.Tests.Registration.Services
     [AsService(typeof(IService1))]
     [AsService(typeof(IService2))]
     public class MultiServiceComponent : IService1, IService2 { }
+
+    /// <summary>
+    /// ComponentAttribute 专用接口1
+    /// </summary>
+    public interface IComponentAttributeService1 { }
+
+    /// <summary>
+    /// ComponentAttribute 专用接口2
+    /// </summary>
+    public interface IComponentAttributeService2 { }
+
+    /// <summary>
+    /// 使用多个 ComponentAttribute 声明服务类型的组件
+    /// </summary>
+    [Component(ServiceType = typeof(IComponentAttributeService1))]
+    [Component(ServiceType = typeof(IComponentAttributeService2))]
+    public class MultiComponentAttributeService : IComponentAttributeService1, IComponentAttributeService2 { }
 }

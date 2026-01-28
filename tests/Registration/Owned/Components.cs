@@ -38,4 +38,12 @@ namespace Csanno.Tests.Registration.Owned
     [Component]
     [PerMatchingLifetimeScope("tag1", "tag2")]
     public class MultiTagScopeComponent;
+
+    /// <summary>
+    /// 同时标记 PerMatchingLifetimeScope 和 Scoped 的组件
+    /// </summary>
+    [Component]
+    [Scoped]
+    [PerMatchingLifetimeScope("request")]
+    public class PerMatchingAndScopedComponent;
 }

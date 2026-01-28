@@ -30,7 +30,16 @@ namespace Csanno.Internal
         /// </summary>
         private static IEnumerable<ComponentRegistration> ScanAssembly(Assembly assembly)
         {
-            var types = assembly.GetTypes();
+            Type[] types;
+            try
+            {
+                types = assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                types = ex.Types.Where(t => t is not null).Cast<Type>().ToArray();
+            }
+
             foreach (var type in types)
             {
                 if (TryGetComponentRegistration(type, out var registration) && registration is not null)
@@ -48,8 +57,8 @@ namespace Csanno.Internal
             registration = null;
 
             // 检查是否有 Component 特性
-            var componentAttr = type.GetCustomAttribute<ComponentAttribute>();
-            if (componentAttr is null)
+            var componentAttrs = type.GetCustomAttributes<ComponentAttribute>(inherit: true).ToArray();
+            if (componentAttrs.Length == 0)
             {
                 return false;
             }
@@ -64,7 +73,7 @@ namespace Csanno.Internal
             var lifetime = ResolveLifetime(type, out var lifetimeScopeTags, out var ownedType);
 
             // 解析服务类型
-            var serviceTypes = ResolveServiceTypes(type, componentAttr);
+            var serviceTypes = ResolveServiceTypes(type, componentAttrs);
 
             // 解析元数据
             var metadata = ResolveMetadata(type);
@@ -173,7 +182,7 @@ namespace Csanno.Internal
         /// <summary>
         /// 解析服务类型
         /// </summary>
-        private static Type[] ResolveServiceTypes(Type type, ComponentAttribute componentAttr)
+        private static Type[] ResolveServiceTypes(Type type, ComponentAttribute[] componentAttrs)
         {
             var serviceTypes = new List<Type>();
 
@@ -190,10 +199,16 @@ namespace Csanno.Internal
                 return [.. serviceTypes];
             }
 
-            // 3. 如果 ComponentAttribute.ServiceType 有值，使用该类型
-            if (componentAttr.ServiceType is not null)
+            // 3. 如果 ComponentAttribute.ServiceType 有值，使用这些类型
+            var componentServiceTypes = componentAttrs
+                .Select(attr => attr.ServiceType)
+                .Where(t => t is not null)
+                .Cast<Type>()
+                .Distinct()
+                .ToList();
+            if (componentServiceTypes.Count > 0)
             {
-                return [componentAttr.ServiceType];
+                return [.. componentServiceTypes];
             }
 
             // 4. 默认使用类本身
