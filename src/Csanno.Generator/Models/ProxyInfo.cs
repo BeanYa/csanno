@@ -42,6 +42,31 @@ namespace Csanno.Generator.Models
         /// 构造函数列表
         /// </summary>
         public List<ProxyConstructorInfo> Constructors { get; set; } = new();
+
+        /// <summary>
+        /// 生命周期
+        /// </summary>
+        public InstanceLifetime Lifetime { get; set; }
+
+        /// <summary>
+        /// 服务类型集合
+        /// </summary>
+        public List<ServiceInfo> Services { get; set; } = new();
+
+        /// <summary>
+        /// 元数据集合
+        /// </summary>
+        public List<MetadataInfo> Metadata { get; set; } = new();
+
+        /// <summary>
+        /// 生命周期作用域标签（用于 PerMatchingLifetimeScope）
+        /// </summary>
+        public string[]? LifetimeScopeTags { get; set; }
+
+        /// <summary>
+        /// Owned 类型（用于 Owned 生命周期）
+        /// </summary>
+        public string? OwnedTypeName { get; set; }
     }
 
     /// <summary>

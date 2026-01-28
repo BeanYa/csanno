@@ -1,4 +1,5 @@
 using Autofac;
+using Autofac.Features.Metadata;
 using NUnit.Framework;
 
 namespace Csanno.Tests.Aop
@@ -273,6 +274,28 @@ namespace Csanno.Tests.Aop
             // Assert - 验证所有 OnAfter 都被调用
             var onAfterCalls = ChainInterceptor1.CallOrder.Where(c => c.Contains("OnAfter")).ToList();
             Assert.That(onAfterCalls.Count, Is.EqualTo(3), "所有拦截器的 OnAfter 都应被调用");
+        }
+
+        [Test]
+        public void AopProxy_Should_Preserve_Lifetime_Service_And_Metadata()
+        {
+            // Arrange
+            var builder = new ContainerBuilder();
+            builder.RegisterComponents();
+            builder.RegisterAopProxies();
+            var container = builder.Build();
+
+            // Act
+            var service1 = container.Resolve<IAopMetadataService>();
+            var service2 = container.Resolve<IAopMetadataService>();
+            var meta = container.Resolve<Meta<IAopMetadataService>>();
+
+            // Assert - proxy should be the resolved type
+            Assert.That(service1.GetType().Name, Is.EqualTo("AopMetadataService_Proxy"));
+            Assert.That(service1, Is.SameAs(service2), "Singleton 生命周期应被保留");
+
+            Assert.That(meta.Metadata.ContainsKey("Name"), Is.True, "元数据应被保留");
+            Assert.That(meta.Metadata["Name"], Is.EqualTo("AopService"));
         }
     }
 

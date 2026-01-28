@@ -11,7 +11,7 @@ namespace Csanno.Tests
         /// <summary>
         /// 创建并构建一个预配置了测试组件的容器
         /// </summary>
-        public static IContainer CreateContainer(Action<ContainerBuilder> configure = null)
+        public static IContainer CreateContainer(Action<ContainerBuilder>? configure = null)
         {
             var builder = new ContainerBuilder();
 

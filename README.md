@@ -83,7 +83,8 @@ The generator automatically detects and prefers compile-time generated code, fal
 - **Compile-time code generation**: Source Generator automatically generates registration code, zero runtime overhead
 - **Service interface mapping**: `[AsService(typeof(IService))]`
 - **Multiple service interfaces**: One component can register as multiple services
-- **Metadata support**: `[WithMetadata("key", value)]` (compile-time constants only)
+- **Metadata support**: `[WithMetadata("key", value)]` (compile-time constants only; supports string/bool/int/long/double/char/enum/typeof)
+- **Component attribute inheritance**: Derived classes can inherit `[Component]`, and `ComponentAttribute.ServiceType` can be specified multiple times
 - **Automatic assembly scanning**: Automatically discovers and registers all marked components
 - **Type safety**: Compile-time checking, avoiding runtime errors
 - **Smart filtering**: Automatically excludes static classes, abstract classes, and classes without public constructors
@@ -358,6 +359,8 @@ var providers = container.Resolve<IEnumerable<Meta<IPaymentProvider>>>();
 var alipay = providers.First(p => p.Metadata["Name"].ToString() == "Alipay");
 ```
 
+Supported metadata literal types (compile-time constants): `string`, `bool`, `int`, `long`, `double`, `char`, `enum`, `typeof`.
+
 ### Lifetime Scopes
 
 ```csharp
@@ -482,7 +485,7 @@ Csanno/
 
 Csanno.Generator is a Roslyn Source Generator that executes the following steps at compile time:
 
-1. **Syntax analysis**: Scans all classes with `[Component]` attribute
+1. **Syntax analysis**: Scans all classes with `[Component]` (including inherited/derived attributes)
 2. **Information extraction**: Extracts lifecycle, service mapping, metadata, etc.
 3. **Code generation**: Generates `RegisterGeneratedComponents()` method
 4. **Output file**: Writes generated code to `obj/Generated` directory

@@ -62,4 +62,15 @@ namespace Csanno.Tests.Registration.EdgeCases
     {
         public string Value => "not a component";
     }
+
+    /// <summary>
+    /// 带 Component 特性的基类
+    /// </summary>
+    [Component]
+    public class BaseComponent;
+
+    /// <summary>
+    /// 继承 Component 特性的派生类
+    /// </summary>
+    public class DerivedComponent : BaseComponent;
 }

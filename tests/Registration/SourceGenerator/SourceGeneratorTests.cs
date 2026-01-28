@@ -20,6 +20,7 @@ namespace Csanno.Tests
         private const string MetadataNamespace = "Csanno.Tests.Registration.Metadata";
         private const string OwnedNamespace = "Csanno.Tests.Registration.Owned";
         private const string ServicesNamespace = "Csanno.Tests.Registration.Services";
+        private const string AopNamespace = "Csanno.Tests.Aop";
 
         #region 1. 生成器加载测试
 
@@ -152,12 +153,16 @@ namespace Csanno.Tests
             {
                 ["ComponentWithMetadata"] = MetadataNamespace,
                 ["ComponentWithMultipleMetadataTypes"] = MetadataNamespace,
+                ["ComponentWithExtendedMetadata"] = MetadataNamespace,
                 ["ConflictingLifetimeComponent"] = EdgeCasesNamespace,
                 ["Consumer"] = DependenciesNamespace,
                 ["ConsumerWithMissingDependency"] = EdgeCasesNamespace,
+                ["DerivedComponent"] = EdgeCasesNamespace,
                 ["DefaultLifetimeComponent"] = EdgeCasesNamespace,
                 ["DisposableOwnedComponent"] = OwnedNamespace,
                 ["MatchingScopeComponent"] = OwnedNamespace,
+                ["PerMatchingAndScopedComponent"] = OwnedNamespace,
+                ["MultiComponentAttributeService"] = ServicesNamespace,
                 ["MultiServiceComponent"] = ServicesNamespace,
                 ["MultiTagScopeComponent"] = OwnedNamespace,
                 ["OwnedComponent"] = OwnedNamespace,
@@ -378,6 +383,30 @@ namespace Csanno.Tests
                 "应该包含 BoolKey 元数据");
         }
 
+        /// <summary>
+        /// 测试用例：验证扩展元数据类型生成正确（转义、数值、枚举、Type）
+        /// </summary>
+        [Test]
+        public void Component_Should_Register_Extended_Metadata_Types()
+        {
+            // Arrange & Act
+            var generatedCode = ReadGeneratedRegistrationCode();
+
+            // Assert
+            Assert.That(generatedCode, Does.Contain(".WithMetadata(\"Quote\", \"a\\\"b\\\\c\")"),
+                "应该正确转义字符串元数据");
+            Assert.That(generatedCode, Does.Contain(".WithMetadata(\"LongKey\", 123L)"),
+                "应该包含 long 元数据");
+            Assert.That(generatedCode, Does.Contain(".WithMetadata(\"DoubleKey\", 1.5D)"),
+                "应该包含 double 元数据");
+            Assert.That(generatedCode, Does.Contain(".WithMetadata(\"CharKey\", 'x')"),
+                "应该包含 char 元数据");
+            Assert.That(generatedCode, Does.Contain($".WithMetadata(\"EnumKey\", ({MetadataNamespace}.MetadataEnum)1)"),
+                "应该包含 enum 元数据");
+            Assert.That(generatedCode, Does.Contain($".WithMetadata(\"TypeKey\", typeof({MetadataNamespace}.ComponentWithMetadata))"),
+                "应该包含 Type 元数据");
+        }
+
         #endregion
 
         #region 7. 生成代码可用性测试
@@ -473,6 +502,66 @@ namespace Csanno.Tests
             Assert.That(multiService2, Is.Not.Null, "应该能通过 IService2 接口解析");
         }
 
+        /// <summary>
+        /// 测试用例：多个 ComponentAttribute.ServiceType 应注册多个服务
+        /// </summary>
+        [Test]
+        public void ComponentAttribute_ServiceTypes_Should_Register_As_Multiple_Services()
+        {
+            // Arrange & Act
+            var generatedCode = ReadGeneratedRegistrationCode();
+
+            // Assert
+            Assert.That(generatedCode, Does.Contain($"builder.RegisterType<{ServicesNamespace}.MultiComponentAttributeService>()"),
+                "MultiComponentAttributeService 的注册应该存在");
+            Assert.That(generatedCode, Does.Contain($".As<{ServicesNamespace}.IComponentAttributeService1>()"),
+                "MultiComponentAttributeService 应注册为 IComponentAttributeService1");
+            Assert.That(generatedCode, Does.Contain($".As<{ServicesNamespace}.IComponentAttributeService2>()"),
+                "MultiComponentAttributeService 应注册为 IComponentAttributeService2");
+        }
+
+        /// <summary>
+        /// 测试用例：PerMatchingLifetimeScope 优先级应高于 Scoped
+        /// </summary>
+        [Test]
+        public void PerMatchingLifetimeScope_Should_Have_Higher_Priority_Than_Scoped()
+        {
+            // Arrange & Act
+            var generatedCode = ReadGeneratedRegistrationCode();
+
+            // Assert
+            Assert.That(generatedCode, Does.Contain($"builder.RegisterType<{OwnedNamespace}.PerMatchingAndScopedComponent>().InstancePerMatchingLifetimeScope(\"request\")"),
+                "PerMatchingAndScopedComponent 应使用 InstancePerMatchingLifetimeScope");
+        }
+
+        /// <summary>
+        /// 测试用例：派生类应继承 Component 特性并生成注册
+        /// </summary>
+        [Test]
+        public void Derived_Component_Should_Be_Registered_In_Generated_Code()
+        {
+            // Arrange & Act
+            var generatedCode = ReadGeneratedRegistrationCode();
+
+            // Assert
+            Assert.That(generatedCode, Does.Contain($"builder.RegisterType<{EdgeCasesNamespace}.DerivedComponent>"),
+                "DerivedComponent 应包含在生成代码中");
+        }
+
+        /// <summary>
+        /// 测试用例：BindWith 派生 ComponentAttribute 的拦截器应生成注册
+        /// </summary>
+        [Test]
+        public void BindWith_Interceptors_Should_Be_Registered_In_Generated_Code()
+        {
+            // Arrange & Act
+            var generatedCode = ReadGeneratedRegistrationCode();
+
+            // Assert
+            Assert.That(generatedCode, Does.Contain($"builder.RegisterType<{AopNamespace}.LoggingInterceptor>"),
+                "LoggingInterceptor 应包含在生成代码中");
+        }
+
         #endregion
 
         #region 8. 与运行时扫描的一致性测试
@@ -488,12 +577,16 @@ namespace Csanno.Tests
             {
                 "ComponentWithMetadata",
                 "ComponentWithMultipleMetadataTypes",
+                "ComponentWithExtendedMetadata",
                 "ConflictingLifetimeComponent",
                 "Consumer",
                 "ConsumerWithMissingDependency",
+                "DerivedComponent",
                 "DefaultLifetimeComponent",
                 "DisposableOwnedComponent",
                 "MatchingScopeComponent",
+                "PerMatchingAndScopedComponent",
+                "MultiComponentAttributeService",
                 "MultiServiceComponent",
                 "MultiTagScopeComponent",
                 "OwnedComponent",

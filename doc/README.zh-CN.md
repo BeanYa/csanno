@@ -81,7 +81,8 @@ Csanno 现在支持 **Roslyn Source Generator**，在编译时生成组件注册
 - **编译期代码生成**：Source Generator 自动生成注册代码，零运行时开销
 - **服务接口映射**：`[AsService(typeof(IService))]`
 - **多服务接口**：一个组件可注册为多个服务
-- **元数据支持**：`[WithMetadata("key", value)]`（仅支持编译期常量）
+- **元数据支持**：`[WithMetadata("key", value)]`（仅支持编译期常量：string/bool/int/long/double/char/enum/typeof）
+- **Component 特性继承**：派生类可继承 `[Component]`，`ComponentAttribute.ServiceType` 可多次声明
 - **自动程序集扫描**：自动发现并注册所有标记的组件
 - **类型安全**：编译期检查，避免运行时错误
 - **智能过滤**：自动排除静态类、抽象类、无公共构造函数的类
@@ -356,6 +357,8 @@ var providers = container.Resolve<IEnumerable<Meta<IPaymentProvider>>>();
 var alipay = providers.First(p => p.Metadata["Name"].ToString() == "Alipay");
 ```
 
+支持的元数据字面量类型（编译期常量）：`string`、`bool`、`int`、`long`、`double`、`char`、`enum`、`typeof`。
+
 ### 生命周期作用域
 
 ```csharp
@@ -478,7 +481,7 @@ Csanno/
 
 Csanno.Generator 是一个 Roslyn Source Generator，在编译时执行以下步骤：
 
-1. **语法分析**：扫描所有带 `[Component]` 特性的类
+1. **语法分析**：扫描所有带 `[Component]` 特性的类（包含继承/派生特性）
 2. **信息提取**：提取生命周期、服务映射、元数据等信息
 3. **代码生成**：生成 `RegisterGeneratedComponents()` 方法
 4. **输出文件**：将生成的代码写入 `obj/Generated` 目录
