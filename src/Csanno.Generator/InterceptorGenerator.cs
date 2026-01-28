@@ -233,7 +233,12 @@ namespace Csanno.Generator
                 ClassName = classSymbol.Name,
                 FullTypeName = classSymbol.ToDisplayString(),
                 InterceptedMethods = interceptedMethods,
-                Constructors = constructors
+                Constructors = constructors,
+                Lifetime = ResolveLifetime(classSymbol, out var tags, out var ownedType),
+                LifetimeScopeTags = tags,
+                OwnedTypeName = ownedType,
+                Services = ResolveServiceTypes(classSymbol),
+                Metadata = ResolveMetadata(classSymbol)
             };
         }
 
@@ -337,9 +342,26 @@ namespace Csanno.Generator
             foreach (var proxy in proxies)
             {
                 sb.AppendLine($"            // 代理类: {proxy.ClassName}_Proxy");
-                sb.AppendLine($"            builder.RegisterType<{proxy.Namespace}.{proxy.ClassName}_Proxy>()");
-                sb.AppendLine($"                .As<{proxy.FullTypeName}>()");
-                sb.AppendLine("                .InstancePerDependency();");
+                sb.Append($"            builder.RegisterType<{proxy.Namespace}.{proxy.ClassName}_Proxy>()");
+
+                // 生命周期
+                sb.Append(GetLifetimeMethod(proxy.Lifetime, proxy));
+
+                // 服务映射
+                foreach (var service in proxy.Services)
+                {
+                    sb.AppendLine();
+                    sb.Append($"                .As<{service.ServiceType}>()");
+                }
+
+                // 元数据
+                foreach (var metadata in proxy.Metadata)
+                {
+                    sb.AppendLine();
+                    sb.Append($"                .WithMetadata(\"{metadata.Key}\", {metadata.ValueExpression})");
+                }
+
+                sb.AppendLine(";");
             }
 
             sb.AppendLine("        }");
@@ -347,6 +369,179 @@ namespace Csanno.Generator
             sb.AppendLine("}");
 
             context.AddSource($"AopRegistration.{assemblyName}.g.cs", sb.ToString());
+        }
+
+        private static InstanceLifetime ResolveLifetime(
+            INamedTypeSymbol classSymbol,
+            out string[]? tags,
+            out string? ownedType)
+        {
+            tags = null;
+            ownedType = null;
+
+            var attributes = classSymbol.GetAttributes();
+            var attrNames = new HashSet<string>(attributes.Select(a => a.AttributeClass?.Name).Where(n => n != null)!);
+
+            if (attrNames.Contains("SingletonAttribute"))
+            {
+                return InstanceLifetime.Singleton;
+            }
+
+            if (attrNames.Contains("ScopedAttribute"))
+            {
+                return InstanceLifetime.Scoped;
+            }
+
+            if (attrNames.Contains("PerRequestAttribute"))
+            {
+                return InstanceLifetime.PerRequest;
+            }
+
+            var perMatching = attributes.FirstOrDefault(a =>
+                a.AttributeClass?.Name == "PerMatchingLifetimeScopeAttribute");
+            if (perMatching != null)
+            {
+                tags = perMatching.ConstructorArguments
+                    .SelectMany(a => a.Values)
+                    .Select(v => v.Value?.ToString())
+                    .OfType<string>()
+                    .ToArray();
+                return InstanceLifetime.PerMatchingLifetimeScope;
+            }
+
+            var ownedAttr = attributes.FirstOrDefault(a =>
+                a.AttributeClass?.Name == "OwnedAttribute");
+            if (ownedAttr != null)
+            {
+                var ownedTypeProp = ownedAttr.NamedArguments
+                    .FirstOrDefault(kvp => kvp.Key == "OwnedType");
+                if (ownedTypeProp.Value.Value is INamedTypeSymbol typeSymbol)
+                {
+                    ownedType = typeSymbol.ToDisplayString();
+                }
+                return InstanceLifetime.Owned;
+            }
+
+            if (attrNames.Contains("TransientAttribute"))
+            {
+                return InstanceLifetime.Transient;
+            }
+
+            return InstanceLifetime.Transient;
+        }
+
+        private static List<ServiceInfo> ResolveServiceTypes(INamedTypeSymbol classSymbol)
+        {
+            var services = new List<ServiceInfo>();
+
+            var asServiceAttrs = classSymbol.GetAttributes()
+                .Where(a => a.AttributeClass?.Name == "AsServiceAttribute");
+
+            foreach (var attr in asServiceAttrs)
+            {
+                var serviceType = attr.ConstructorArguments.FirstOrDefault().Value;
+                if (serviceType is INamedTypeSymbol typeSymbol)
+                {
+                    services.Add(new ServiceInfo
+                    {
+                        ServiceType = typeSymbol.ToDisplayString(),
+                        IsSelf = SymbolEqualityComparer.Default.Equals(typeSymbol, classSymbol)
+                    });
+                }
+            }
+
+            var componentAttr = classSymbol.GetAttributes()
+                .FirstOrDefault(a => a.AttributeClass?.Name == "ComponentAttribute");
+            if (componentAttr != null)
+            {
+                var serviceTypeProp = componentAttr.NamedArguments
+                    .FirstOrDefault(kvp => kvp.Key == "ServiceType");
+                if (serviceTypeProp.Value.Value is INamedTypeSymbol propType)
+                {
+                    services.Clear();
+                    services.Add(new ServiceInfo
+                    {
+                        ServiceType = propType.ToDisplayString(),
+                        IsSelf = SymbolEqualityComparer.Default.Equals(propType, classSymbol)
+                    });
+                    return services;
+                }
+            }
+
+            if (services.Count == 0)
+            {
+                services.Add(new ServiceInfo
+                {
+                    ServiceType = classSymbol.ToDisplayString(),
+                    IsSelf = true
+                });
+            }
+
+            return services;
+        }
+
+        private static List<MetadataInfo> ResolveMetadata(INamedTypeSymbol classSymbol)
+        {
+            return classSymbol.GetAttributes()
+                .Where(a => a.AttributeClass?.Name == "WithMetadataAttribute")
+                .Select(attr =>
+                {
+                    var key = attr.ConstructorArguments[0].Value?.ToString() ?? string.Empty;
+                    var value = attr.ConstructorArguments[1];
+
+                    return new MetadataInfo
+                    {
+                        Key = key,
+                        ValueExpression = ConvertToAotFriendlyExpression(value)
+                    };
+                })
+                .ToList();
+        }
+
+        private static string ConvertToAotFriendlyExpression(TypedConstant value)
+        {
+            if (value.Value is null)
+            {
+                return "null";
+            }
+
+            if (value.Value is string s)
+            {
+                return $"\"{s}\"";
+            }
+
+            if (value.Value is bool b)
+            {
+                return b ? "true" : "false";
+            }
+
+            if (value.Value is int i)
+            {
+                return i.ToString();
+            }
+
+            if (value.Value is INamedTypeSymbol type)
+            {
+                return $"typeof({type.ToDisplayString()})";
+            }
+
+            return "null";
+        }
+
+        private static string GetLifetimeMethod(InstanceLifetime lifetime, ProxyInfo proxy)
+        {
+            return lifetime switch
+            {
+                InstanceLifetime.Transient => ".InstancePerDependency()",
+                InstanceLifetime.Scoped => ".InstancePerLifetimeScope()",
+                InstanceLifetime.Singleton => ".SingleInstance()",
+                InstanceLifetime.PerRequest => ".InstancePerRequest()",
+                InstanceLifetime.PerMatchingLifetimeScope =>
+                    $".InstancePerMatchingLifetimeScope({string.Join(", ", proxy.LifetimeScopeTags?.Select(t => $"\"{t}\"") ?? Enumerable.Empty<string>())})",
+                InstanceLifetime.Owned =>
+                    $".InstancePerOwned<{proxy.OwnedTypeName ?? proxy.FullTypeName}>()",
+                _ => ".InstancePerDependency()"
+            };
         }
     }
 }

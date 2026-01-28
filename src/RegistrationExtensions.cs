@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Reflection;
 using Autofac;
 using Csanno.Internal;
@@ -20,18 +21,26 @@ namespace Csanno
             this ContainerBuilder builder,
             params Assembly[] assemblies)
         {
-            // 优先使用编译期生成的代码
-            if (TryRegisterGenerated(builder, assemblies))
+            var fallbackAssemblies = new List<Assembly>();
+
+            foreach (var assembly in assemblies)
             {
-                return builder;
+                // 优先使用编译期生成的代码（按程序集逐个处理）
+                if (!TryRegisterGenerated(builder, assembly))
+                {
+                    fallbackAssemblies.Add(assembly);
+                }
             }
 
-            // 回退到运行时扫描
-            var registrations = ComponentScanner.Scan(assemblies);
-
-            foreach (var registration in registrations)
+            // 对未命中生成器的程序集回退到运行时扫描
+            if (fallbackAssemblies.Count > 0)
             {
-                RegisterComponent(builder, registration);
+                var registrations = ComponentScanner.Scan(fallbackAssemblies);
+
+                foreach (var registration in registrations)
+                {
+                    RegisterComponent(builder, registration);
+                }
             }
 
             return builder;
@@ -43,24 +52,21 @@ namespace Csanno
         /// <param name="builder">容器构建器</param>
         /// <param name="assemblies">要注册的程序集</param>
         /// <returns>如果成功使用生成器注册则为 true，否则为 false</returns>
-        private static bool TryRegisterGenerated(ContainerBuilder builder, Assembly[] assemblies)
+        private static bool TryRegisterGenerated(ContainerBuilder builder, Assembly assembly)
         {
-            foreach (var assembly in assemblies)
+            var registrationType = assembly.GetType(
+                "Csanno.ComponentRegistration.ComponentRegistrationExtensions");
+
+            if (registrationType != null)
             {
-                var registrationType = assembly.GetType(
-                    "Csanno.ComponentRegistration.ComponentRegistrationExtensions");
+                var method = registrationType.GetMethod(
+                    "RegisterGeneratedComponents",
+                    BindingFlags.Static | BindingFlags.Public);
 
-                if (registrationType != null)
+                if (method != null)
                 {
-                    var method = registrationType.GetMethod(
-                        "RegisterGeneratedComponents",
-                        BindingFlags.Static | BindingFlags.Public);
-
-                    if (method != null)
-                    {
-                        method.Invoke(null, new object[] { builder });
-                        return true;
-                    }
+                    method.Invoke(null, new object[] { builder });
+                    return true;
                 }
             }
             return false;
