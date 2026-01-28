@@ -224,7 +224,7 @@ namespace Csanno.Generator
                 {
                     services.Add(new ServiceInfo
                     {
-                        ServiceType = typeSymbol.ToDisplayString(),
+                        ServiceType = typeSymbol!.ToDisplayString(),
                         IsSelf = SymbolEqualityComparer.Default.Equals(typeSymbol, classSymbol)
                     });
                 }

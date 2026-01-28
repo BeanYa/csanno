@@ -50,7 +50,7 @@ namespace Csanno
         /// 尝试使用编译期生成的注册代码
         /// </summary>
         /// <param name="builder">容器构建器</param>
-        /// <param name="assemblies">要注册的程序集</param>
+        /// <param name="assembly">要注册的程序集</param>
         /// <returns>如果成功使用生成器注册则为 true，否则为 false</returns>
         private static bool TryRegisterGenerated(ContainerBuilder builder, Assembly assembly)
         {
