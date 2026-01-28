@@ -229,7 +229,7 @@ Or add to `.csproj`:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Csanno" Version="0.1.0" />
+  <PackageReference Include="Csanno" Version="0.0.5" />
   <PackageReference Include="Autofac" Version="8.0.0" />
 </ItemGroup>
 ```
