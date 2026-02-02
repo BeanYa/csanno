@@ -171,4 +171,70 @@ namespace Csanno.Tests.Aop
         }
     }
 
+    /// <summary>
+    /// 继承场景基类
+    /// </summary>
+    public class BaseService
+    {
+        /// <summary>
+        /// 基类虚方法（可被子类覆盖和拦截）
+        /// </summary>
+        [Logging]
+        public virtual string BaseVirtualMethod(string input)
+        {
+            return $"Base: {input}";
+        }
+
+        /// <summary>
+        /// 基类非虚方法（不可被覆盖）
+        /// </summary>
+        [Logging]
+        public string BaseNonVirtualMethod(string input)
+        {
+            return $"BaseNonVirtual: {input}";
+        }
+    }
+
+    /// <summary>
+    /// 继承场景子类
+    /// </summary>
+    [Component]
+    public class DerivedService : BaseService
+    {
+        /// <summary>
+        /// 覆盖基类虚方法
+        /// </summary>
+        [Logging]
+        public override string BaseVirtualMethod(string input)
+        {
+            return $"Derived: {input}";
+        }
+
+        /// <summary>
+        /// 子类自己的虚方法
+        /// </summary>
+        [Logging]
+        public virtual string DerivedVirtualMethod(string input)
+        {
+            return $"DerivedOwn: {input}";
+        }
+    }
+
+    /// <summary>
+    /// 用于测试拦截器异常传播的服务
+    /// </summary>
+    [Component]
+    public class InterceptorExceptionPropagationService
+    {
+        public static bool OriginalMethodCalled { get; private set; }
+        public static void Clear() => OriginalMethodCalled = false;
+
+        [PropagatingException]
+        public virtual int TestMethod(int value)
+        {
+            OriginalMethodCalled = true;
+            return value * 2;
+        }
+    }
+
 }

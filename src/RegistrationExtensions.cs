@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Reflection;
 using Autofac;
@@ -11,6 +13,11 @@ namespace Csanno
     /// </summary>
     public static class RegistrationExtensions
     {
+        // 组件注册委托缓存，避免重复反射查找
+        private static readonly ConcurrentDictionary<Assembly, Action<ContainerBuilder>?> ComponentRegistrationCache = new();
+
+        // AOP 注册委托缓存，避免重复反射查找
+        private static readonly ConcurrentDictionary<Assembly, Action<ContainerBuilder>?> AopRegistrationCache = new();
         /// <summary>
         /// 注册指定程序集中的所有带 [Component] 特性的组件
         /// </summary>
@@ -54,22 +61,39 @@ namespace Csanno
         /// <returns>如果成功使用生成器注册则为 true，否则为 false</returns>
         private static bool TryRegisterGenerated(ContainerBuilder builder, Assembly assembly)
         {
-            var registrationType = assembly.GetType(
-                "Csanno.ComponentRegistration.ComponentRegistrationExtensions");
-
-            if (registrationType != null)
+            // 从缓存获取或创建委托
+            var registrationAction = ComponentRegistrationCache.GetOrAdd(assembly, asm =>
             {
+                var registrationType = asm.GetType(
+                    "Csanno.ComponentRegistration.ComponentRegistrationExtensions");
+
+                if (registrationType == null) return null;
+
                 var method = registrationType.GetMethod(
                     "RegisterGeneratedComponents",
                     BindingFlags.Static | BindingFlags.Public);
 
-                if (method != null)
-                {
-                    method.Invoke(null, new object[] { builder });
-                    return true;
-                }
+                if (method == null) return null;
+
+                // 创建委托避免后续反射调用
+                return (Action<ContainerBuilder>)Delegate.CreateDelegate(
+                    typeof(Action<ContainerBuilder>), method);
+            });
+
+            if (registrationAction == null) return false;
+
+            try
+            {
+                registrationAction(builder);
+                return true;
             }
-            return false;
+            catch (TargetInvocationException ex) when (ex.InnerException != null)
+            {
+                // 解包内部异常，提供更清晰的错误信息
+                throw new InvalidOperationException(
+                    $"注册程序集 '{assembly.GetName().Name}' 的组件时发生错误: {ex.InnerException.Message}",
+                    ex.InnerException);
+            }
         }
 
         /// <summary>
@@ -178,22 +202,39 @@ namespace Csanno
         /// </summary>
         private static bool TryRegisterAopGenerated(ContainerBuilder builder, Assembly assembly)
         {
-            var registrationType = assembly.GetType(
-                "Csanno.ComponentRegistration.AopRegistrationExtensions");
-
-            if (registrationType != null)
+            // 从缓存获取或创建委托
+            var registrationAction = AopRegistrationCache.GetOrAdd(assembly, asm =>
             {
+                var registrationType = asm.GetType(
+                    "Csanno.ComponentRegistration.AopRegistrationExtensions");
+
+                if (registrationType == null) return null;
+
                 var method = registrationType.GetMethod(
                     "RegisterAopProxies",
                     BindingFlags.Static | BindingFlags.Public);
 
-                if (method != null)
-                {
-                    method.Invoke(null, new object[] { builder });
-                    return true;
-                }
+                if (method == null) return null;
+
+                // 创建委托避免后续反射调用
+                return (Action<ContainerBuilder>)Delegate.CreateDelegate(
+                    typeof(Action<ContainerBuilder>), method);
+            });
+
+            if (registrationAction == null) return false;
+
+            try
+            {
+                registrationAction(builder);
+                return true;
             }
-            return false;
+            catch (TargetInvocationException ex) when (ex.InnerException != null)
+            {
+                // 解包内部异常，提供更清晰的错误信息
+                throw new InvalidOperationException(
+                    $"注册程序集 '{assembly.GetName().Name}' 的 AOP 代理时发生错误: {ex.InnerException.Message}",
+                    ex.InnerException);
+            }
         }
     }
 

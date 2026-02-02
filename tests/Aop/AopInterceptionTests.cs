@@ -297,6 +297,110 @@ namespace Csanno.Tests.Aop
             Assert.That(meta.Metadata.ContainsKey("Name"), Is.True, "元数据应被保留");
             Assert.That(meta.Metadata["Name"], Is.EqualTo("AopService"));
         }
+
+        [Test]
+        public void NonVirtualMethod_ShouldNotBeIntercepted()
+        {
+            // Arrange
+            var builder = new ContainerBuilder();
+            builder.RegisterComponents();
+            builder.RegisterAopProxies();
+            var container = builder.Build();
+
+            // Act
+            var service = container.Resolve<SampleService>();
+            LoggingInterceptor.ClearLogs();
+            var result = service.NonVirtualMethod(5);
+
+            // Assert - 非 virtual 方法不会被拦截
+            Assert.That(result, Is.EqualTo(10));
+            Assert.That(LoggingInterceptor.Logs, Is.Empty, "非 virtual 方法不应触发拦截器");
+        }
+
+        [Test]
+        public void DerivedService_OverriddenVirtualMethod_ShouldBeIntercepted()
+        {
+            // Arrange
+            var builder = new ContainerBuilder();
+            builder.RegisterComponents();
+            builder.RegisterAopProxies();
+            var container = builder.Build();
+
+            // Act
+            var service = container.Resolve<DerivedService>();
+            var result = service.BaseVirtualMethod("test");
+
+            // Assert
+            Assert.That(result, Is.EqualTo("Derived: test"));
+            Assert.That(LoggingInterceptor.Logs, Does.Contain("[Before] BaseVirtualMethod(test)"));
+            Assert.That(LoggingInterceptor.Logs, Does.Contain("[After] BaseVirtualMethod => Derived: test"));
+        }
+
+        [Test]
+        public void DerivedService_OwnVirtualMethod_ShouldBeIntercepted()
+        {
+            // Arrange
+            var builder = new ContainerBuilder();
+            builder.RegisterComponents();
+            builder.RegisterAopProxies();
+            var container = builder.Build();
+
+            // Act
+            var service = container.Resolve<DerivedService>();
+            var result = service.DerivedVirtualMethod("test");
+
+            // Assert
+            Assert.That(result, Is.EqualTo("DerivedOwn: test"));
+            Assert.That(LoggingInterceptor.Logs, Does.Contain("[Before] DerivedVirtualMethod(test)"));
+            Assert.That(LoggingInterceptor.Logs, Does.Contain("[After] DerivedVirtualMethod => DerivedOwn: test"));
+        }
+
+        [Test]
+        public void InterceptorException_OnBefore_ShouldBeHandledByOnBeforeException()
+        {
+            // Arrange
+            PropagatingExceptionInterceptor.Clear();
+            PropagatingExceptionInterceptor.ShouldThrowOnBefore = true;
+            InterceptorExceptionPropagationService.Clear();
+
+            var builder = new ContainerBuilder();
+            builder.RegisterComponents();
+            builder.RegisterAopProxies();
+            var container = builder.Build();
+
+            // Act - 拦截器异常会调用 OnBeforeException，默认返回 true 继续执行
+            var service = container.Resolve<InterceptorExceptionPropagationService>();
+            var result = service.TestMethod(5);
+
+            // Assert - 由于默认 OnBeforeException 返回 true，原生方法应被调用
+            Assert.That(PropagatingExceptionInterceptor.CallOrder, Does.Contain("OnBefore"), "OnBefore 应被调用");
+            Assert.That(InterceptorExceptionPropagationService.OriginalMethodCalled, Is.True, "默认 OnBeforeException 返回 true 时原生方法应被调用");
+            Assert.That(result, Is.EqualTo(10));
+        }
+
+        [Test]
+        public void InterceptorException_OnAfter_ShouldBeHandledByOnAfterException()
+        {
+            // Arrange
+            PropagatingExceptionInterceptor.Clear();
+            PropagatingExceptionInterceptor.ShouldThrowOnAfter = true;
+            InterceptorExceptionPropagationService.Clear();
+
+            var builder = new ContainerBuilder();
+            builder.RegisterComponents();
+            builder.RegisterAopProxies();
+            var container = builder.Build();
+
+            // Act - 拦截器异常会调用 OnAfterException，默认不抛出到调用者
+            var service = container.Resolve<InterceptorExceptionPropagationService>();
+            var result = service.TestMethod(5);
+
+            // Assert - OnAfter 异常被 OnAfterException 处理
+            Assert.That(PropagatingExceptionInterceptor.CallOrder, Does.Contain("OnBefore"), "OnBefore 应被调用");
+            Assert.That(PropagatingExceptionInterceptor.CallOrder, Does.Contain("OnAfter"), "OnAfter 应被调用");
+            Assert.That(InterceptorExceptionPropagationService.OriginalMethodCalled, Is.True, "原生方法应已被调用");
+            Assert.That(result, Is.EqualTo(10));
+        }
     }
 
 }

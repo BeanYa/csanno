@@ -46,6 +46,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- 允许测试项目访问内部类型 -->
+    <InternalsVisibleTo Include="Csanno.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Autofac" Version="8.0.0" />
   </ItemGroup>
 
