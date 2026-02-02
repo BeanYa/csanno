@@ -3,12 +3,38 @@ using Csanno.Attributes;
 
 namespace Csanno.Internal
 {
+    /// <summary>
+    /// 反射类型加载异常事件参数
+    /// </summary>
+    public class ReflectionTypeLoadExceptionEventArgs : EventArgs
+    {
+        /// <summary>
+        /// 发生异常的程序集
+        /// </summary>
+        public Assembly Assembly { get; }
+
+        /// <summary>
+        /// 加载失败的异常列表
+        /// </summary>
+        public Exception?[] LoaderExceptions { get; }
+
+        public ReflectionTypeLoadExceptionEventArgs(Assembly assembly, Exception?[] loaderExceptions)
+        {
+            Assembly = assembly;
+            LoaderExceptions = loaderExceptions;
+        }
+    }
 
     /// <summary>
     /// 组件扫描器，用于扫描程序集并识别带特性的组件
     /// </summary>
     internal static class ComponentScanner
     {
+        /// <summary>
+        /// 当扫描程序集时发生 ReflectionTypeLoadException 时触发，暴露 LoaderExceptions 信息
+        /// </summary>
+        public static event EventHandler<ReflectionTypeLoadExceptionEventArgs>? TypeLoadExceptionOccurred;
+
         /// <summary>
         /// 扫描指定的程序集，返回所有带 [Component] 特性的组件注册信息
         /// </summary>
@@ -37,6 +63,11 @@ namespace Csanno.Internal
             }
             catch (ReflectionTypeLoadException ex)
             {
+                // 触发事件，暴露 LoaderExceptions 信息给调用者
+                TypeLoadExceptionOccurred?.Invoke(null, new ReflectionTypeLoadExceptionEventArgs(
+                    assembly,
+                    ex.LoaderExceptions ?? []
+                ));
                 types = ex.Types.Where(t => t is not null).Cast<Type>().ToArray();
             }
 
@@ -56,12 +87,14 @@ namespace Csanno.Internal
         {
             registration = null;
 
-            // 检查是否有 Component 特性
-            var componentAttrs = type.GetCustomAttributes<ComponentAttribute>(inherit: true).ToArray();
-            if (componentAttrs.Length == 0)
+            // 使用 IsDefined 做快速过滤，避免不必要的 GetCustomAttributes 分配
+            if (!type.IsDefined(typeof(ComponentAttribute), inherit: true))
             {
                 return false;
             }
+
+            // 检查是否有 Component 特性
+            var componentAttrs = type.GetCustomAttributes<ComponentAttribute>(inherit: true).ToArray();
 
             // 过滤无效类型
             if (!IsValidComponentType(type))

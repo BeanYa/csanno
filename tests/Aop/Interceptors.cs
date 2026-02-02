@@ -248,4 +248,48 @@ namespace Csanno.Tests.Aop
             ChainInterceptor1.CallOrder.Add("I3.OnAfter");
         }
     }
+
+    /// <summary>
+    /// 异常传播测试注解
+    /// </summary>
+    public class PropagatingExceptionAttribute : BaseInterceptAttribute
+    {
+    }
+
+    /// <summary>
+    /// 在 OnBefore 中抛出异常且不处理的拦截器（异常向上传播）
+    /// </summary>
+    [BindWith<PropagatingExceptionAttribute>]
+    public class PropagatingExceptionInterceptor : BaseInterceptor
+    {
+        public static bool ShouldThrowOnBefore { get; set; }
+        public static bool ShouldThrowOnAfter { get; set; }
+        public static List<string> CallOrder { get; } = [];
+
+        public static void Clear()
+        {
+            ShouldThrowOnBefore = false;
+            ShouldThrowOnAfter = false;
+            CallOrder.Clear();
+        }
+
+        public override bool OnBefore(MethodInfo method, object?[] args, InvokeResult invokeResult)
+        {
+            CallOrder.Add("OnBefore");
+            if (ShouldThrowOnBefore)
+            {
+                throw new InvalidOperationException("Interceptor OnBefore exception");
+            }
+            return true;
+        }
+
+        public override void OnAfter(MethodInfo method, object? result)
+        {
+            CallOrder.Add("OnAfter");
+            if (ShouldThrowOnAfter)
+            {
+                throw new InvalidOperationException("Interceptor OnAfter exception");
+            }
+        }
+    }
 }

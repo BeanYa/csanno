@@ -25,42 +25,20 @@ namespace Csanno.Tests
         #region 1. 生成器加载测试
 
         /// <summary>
-        /// 测试用例：验证 Source Generator 已被加载
+        /// 测试用例：验证 Source Generator 已被加载（通过检查生成的注册类存在）
         /// </summary>
         [Test]
         public void Generator_Should_Be_Loaded()
         {
-            // Arrange & Act
-            var generatorLoadedType = Type.GetType("Csanno.Generated.GeneratorLoaded");
+            // Arrange
+            var assembly = typeof(SourceGeneratorTests).Assembly;
+
+            // Act - 检查生成的注册扩展类是否存在
+            var registrationExtensionsType = assembly.GetType(
+                "Csanno.ComponentRegistration.ComponentRegistrationExtensions");
 
             // Assert
-            Assert.That(generatorLoadedType, Is.Not.Null, "GeneratorLoaded 类型应该存在");
-
-            var isLoadedField = generatorLoadedType?.GetField("IsLoaded", BindingFlags.Static | BindingFlags.Public);
-            Assert.That(isLoadedField, Is.Not.Null, "IsLoaded 字段应该存在");
-
-            var isLoaded = (bool?)(isLoadedField?.GetValue(null));
-            Assert.That(isLoaded, Is.True, "Source Generator 应该已被加载");
-        }
-
-        /// <summary>
-        /// 测试用例：验证生成器加载时间戳有效
-        /// </summary>
-        [Test]
-        public void Generator_Should_Have_Valid_Timestamp()
-        {
-            // Arrange & Act
-            var generatorLoadedType = Type.GetType("Csanno.Generated.GeneratorLoaded");
-            var loadedAtField = generatorLoadedType?.GetField("LoadedAt", BindingFlags.Static | BindingFlags.Public);
-
-            // Assert
-            Assert.That(loadedAtField, Is.Not.Null, "LoadedAt 字段应该存在");
-
-            var loadedAt = (string?)(loadedAtField?.GetValue(null));
-            Assert.That(loadedAt, Is.Not.Null.And.Not.Empty, "LoadedAt 应该包含时间戳");
-
-            // 验证是有效的 ISO 8601 格式
-            Assert.That(() => DateTime.Parse(loadedAt!), Throws.Nothing, "LoadedAt 应该是有效的日期时间格式");
+            Assert.That(registrationExtensionsType, Is.Not.Null, "生成的注册扩展类应该存在，表明 Source Generator 已加载");
         }
 
         #endregion

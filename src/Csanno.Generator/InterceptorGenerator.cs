@@ -1,10 +1,7 @@
-using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Csanno.Generator.Emit;
 using Csanno.Generator.Models;
@@ -19,12 +16,36 @@ namespace Csanno.Generator
     [Generator]
     public sealed class InterceptorGenerator : IIncrementalGenerator
     {
+        private static readonly DiagnosticDescriptor AsyncMethodNotSupported = new(
+            id: "CSANNO001",
+            title: "Async method not supported for interception",
+            messageFormat: "Method '{0}' is async and cannot be intercepted",
+            category: "Csanno.Generator",
+            DiagnosticSeverity.Warning,
+            isEnabledByDefault: true);
+
+        private static readonly DiagnosticDescriptor RefOutParameterNotSupported = new(
+            id: "CSANNO002",
+            title: "Ref/Out parameter not supported for interception",
+            messageFormat: "Method '{0}' has ref or out parameters and cannot be intercepted",
+            category: "Csanno.Generator",
+            DiagnosticSeverity.Warning,
+            isEnabledByDefault: true);
+
+        private static readonly DiagnosticDescriptor GenericMethodNotSupported = new(
+            id: "CSANNO003",
+            title: "Generic method not supported for interception",
+            messageFormat: "Method '{0}' is generic and cannot be intercepted",
+            category: "Csanno.Generator",
+            DiagnosticSeverity.Warning,
+            isEnabledByDefault: true);
+
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
             // 1. 扫描所有带 [BindWith] 特性的拦截器类
             var interceptorDeclarations = context.SyntaxProvider
                 .CreateSyntaxProvider(
-                    predicate: static (node, _) => node is ClassDeclarationSyntax,
+                    predicate: static (node, _) => node is ClassDeclarationSyntax cds && cds.AttributeLists.Count > 0,
                     transform: static (ctx, _) => TryGetInterceptorInfo(ctx)
                 )
                 .Where(static m => m is not null);
@@ -32,10 +53,10 @@ namespace Csanno.Generator
             // 2. 扫描所有带 [Component] 特性且有需要拦截方法的类
             var proxyDeclarations = context.SyntaxProvider
                 .CreateSyntaxProvider(
-                    predicate: static (node, _) => node is ClassDeclarationSyntax,
+                    predicate: static (node, _) => node is ClassDeclarationSyntax cds && cds.AttributeLists.Count > 0,
                     transform: static (ctx, _) => TryGetProxyInfo(ctx)
                 )
-                .Where(static m => m is not null && m.HasInterceptedMethods);
+                .Where(static m => m is not null && m.Value.ProxyInfo.HasInterceptedMethods);
 
             // 3. 组合拦截器和代理类信息
             var combined = interceptorDeclarations.Collect()
@@ -46,9 +67,21 @@ namespace Csanno.Generator
             context.RegisterSourceOutput(combined, static (spc, source) =>
             {
                 var interceptors = source.Left.Left.OfType<InterceptorInfo>().ToList();
-                var proxies = source.Left.Right.OfType<ProxyInfo>().ToList();
+                var proxyResults = source.Left.Right
+                    .Where(m => m is not null)
+                    .Select(m => m!.Value)
+                    .ToList();
                 var compilation = source.Right;
 
+                foreach (var result in proxyResults)
+                {
+                    foreach (var diag in result.Diagnostics)
+                    {
+                        spc.ReportDiagnostic(diag);
+                    }
+                }
+
+                var proxies = proxyResults.Select(r => r.ProxyInfo).ToList();
                 GenerateProxyCode(spc, compilation.AssemblyName ?? "Unknown", interceptors, proxies);
             });
         }
@@ -61,9 +94,9 @@ namespace Csanno.Generator
                 return null;
             }
 
-            // 检查是否实现 IInterceptor 接口
+            // 检查是否实现 IInterceptor 接口（使用全限定名）
             var implementsInterceptor = classSymbol.AllInterfaces
-                .Any(i => i.Name == "IInterceptor" || i.ToDisplayString() == "Csanno.Attributes.IInterceptor");
+                .Any(i => i.ToDisplayString() == "Csanno.Attributes.IInterceptor");
 
             if (!implementsInterceptor)
             {
@@ -74,14 +107,17 @@ namespace Csanno.Generator
             var bindings = new List<InterceptorBinding>();
             foreach (var attr in classSymbol.GetAttributes())
             {
-                var attrName = attr.AttributeClass?.Name;
                 var attrFullName = attr.AttributeClass?.ToDisplayString();
+                if (attrFullName is null)
+                {
+                    continue;
+                }
 
                 string? attributeType = null;
                 string invokeType = "Default";
 
-                // 处理泛型 BindWithAttribute<T>
-                if (attrName == "BindWithAttribute" && attr.AttributeClass?.IsGenericType == true)
+                // 处理泛型 BindWithAttribute<T>（使用全限定名前缀匹配）
+                if (attrFullName.StartsWith("Csanno.Attributes.BindWithAttribute<") && attr.AttributeClass?.IsGenericType == true)
                 {
                     var typeArg = attr.AttributeClass.TypeArguments.FirstOrDefault();
                     if (typeArg is not null)
@@ -90,7 +126,7 @@ namespace Csanno.Generator
                     }
                 }
                 // 处理非泛型 BindWithAttribute(typeof(T))
-                else if (attrName == "BindWithAttribute" && attr.ConstructorArguments.Length > 0)
+                else if (attrFullName == "Csanno.Attributes.BindWithAttribute" && attr.ConstructorArguments.Length > 0)
                 {
                     var typeArg = attr.ConstructorArguments[0].Value;
                     if (typeArg is INamedTypeSymbol namedType)
@@ -143,7 +179,7 @@ namespace Csanno.Generator
         }
 
 
-        private static ProxyInfo? TryGetProxyInfo(GeneratorSyntaxContext context)
+        private static (ProxyInfo ProxyInfo, List<Diagnostic> Diagnostics)? TryGetProxyInfo(GeneratorSyntaxContext context)
         {
             var symbol = context.SemanticModel.GetDeclaredSymbol(context.Node);
             if (symbol is not INamedTypeSymbol classSymbol)
@@ -158,42 +194,85 @@ namespace Csanno.Generator
             }
 
             // 检查是否有 [Component] 特性（含继承/派生）
-            if (!HasComponentAttribute(classSymbol))
+            if (!SymbolAnalysis.HasComponentAttribute(classSymbol))
             {
                 return null;
             }
 
+            var diagnostics = new List<Diagnostic>();
+
             // 查找需要拦截的方法（带有拦截注解且是 virtual 的方法）
+            // 包括本类和基类的方法
             var interceptedMethods = new List<MethodInterceptInfo>();
-            foreach (var member in classSymbol.GetMembers())
+            var processedMethods = new HashSet<string>();
+
+            foreach (var methodSymbol in GetAllMethods(classSymbol))
             {
-                if (member is IMethodSymbol methodSymbol &&
-                    methodSymbol.MethodKind == MethodKind.Ordinary &&
-                    methodSymbol.IsVirtual &&
-                    methodSymbol.DeclaredAccessibility == Accessibility.Public)
+                if (methodSymbol.MethodKind != MethodKind.Ordinary ||
+                    !methodSymbol.IsVirtual ||
+                    methodSymbol.DeclaredAccessibility != Accessibility.Public)
                 {
-                    var interceptorAttributes = GetInterceptorAttributes(methodSymbol);
-                    if (interceptorAttributes.Count > 0)
-                    {
-                        interceptedMethods.Add(new MethodInterceptInfo
-                        {
-                            MethodName = methodSymbol.Name,
-                            ReturnType = methodSymbol.ReturnType.ToDisplayString(),
-                            ReturnsVoid = methodSymbol.ReturnsVoid,
-                            Parameters = methodSymbol.Parameters
-                                .Select(p => new ProxyParameterInfo
-                                {
-                                    Name = p.Name,
-                                    Type = p.Type.ToDisplayString()
-                                })
-                                .ToList(),
-                            InterceptorAttributeTypes = interceptorAttributes
-                        });
-                    }
+                    continue;
                 }
+
+                var methodSignature = GetMethodSignature(methodSymbol);
+                if (!processedMethods.Add(methodSignature))
+                {
+                    continue;
+                }
+
+                var interceptorAttributes = GetInterceptorAttributes(methodSymbol);
+                if (interceptorAttributes.Count == 0)
+                {
+                    continue;
+                }
+
+                var location = context.Node.GetLocation();
+
+                if (methodSymbol.IsAsync)
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        AsyncMethodNotSupported,
+                        location,
+                        methodSymbol.Name));
+                    continue;
+                }
+
+                if (methodSymbol.Parameters.Any(p => p.RefKind is RefKind.Ref or RefKind.Out))
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        RefOutParameterNotSupported,
+                        location,
+                        methodSymbol.Name));
+                    continue;
+                }
+
+                if (methodSymbol.IsGenericMethod)
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        GenericMethodNotSupported,
+                        location,
+                        methodSymbol.Name));
+                    continue;
+                }
+
+                interceptedMethods.Add(new MethodInterceptInfo
+                {
+                    MethodName = methodSymbol.Name,
+                    ReturnType = methodSymbol.ReturnType.ToDisplayString(),
+                    ReturnsVoid = methodSymbol.ReturnsVoid,
+                    Parameters = methodSymbol.Parameters
+                        .Select(p => new ProxyParameterInfo
+                        {
+                            Name = p.Name,
+                            Type = p.Type.ToDisplayString()
+                        })
+                        .ToList(),
+                    InterceptorAttributeTypes = interceptorAttributes
+                });
             }
 
-            if (interceptedMethods.Count == 0)
+            if (interceptedMethods.Count == 0 && diagnostics.Count == 0)
             {
                 return null;
             }
@@ -219,7 +298,7 @@ namespace Csanno.Generator
                 constructors.Add(new ProxyConstructorInfo { Parameters = new List<ProxyParameterInfo>() });
             }
 
-            return new ProxyInfo
+            var proxyInfo = new ProxyInfo
             {
                 AssemblyName = classSymbol.ContainingAssembly.Name,
                 Namespace = classSymbol.ContainingNamespace.ToDisplayString(),
@@ -227,12 +306,33 @@ namespace Csanno.Generator
                 FullTypeName = classSymbol.ToDisplayString(),
                 InterceptedMethods = interceptedMethods,
                 Constructors = constructors,
-                Lifetime = ResolveLifetime(classSymbol, out var tags, out var ownedType),
+                Lifetime = SymbolAnalysis.ResolveLifetime(classSymbol, out var tags, out var ownedType),
                 LifetimeScopeTags = tags,
                 OwnedTypeName = ownedType,
-                Services = ResolveServiceTypes(classSymbol),
-                Metadata = ResolveMetadata(classSymbol)
+                Services = SymbolAnalysis.ResolveServiceTypes(classSymbol),
+                Metadata = SymbolAnalysis.ResolveMetadata(classSymbol)
             };
+
+            return (proxyInfo, diagnostics);
+        }
+
+        private static IEnumerable<IMethodSymbol> GetAllMethods(INamedTypeSymbol classSymbol)
+        {
+            var current = classSymbol;
+            while (current is not null)
+            {
+                foreach (var member in current.GetMembers().OfType<IMethodSymbol>())
+                {
+                    yield return member;
+                }
+                current = current.BaseType;
+            }
+        }
+
+        private static string GetMethodSignature(IMethodSymbol method)
+        {
+            var paramTypes = string.Join(",", method.Parameters.Select(p => p.Type.ToDisplayString()));
+            return $"{method.Name}({paramTypes})";
         }
 
         private static List<string> GetInterceptorAttributes(IMethodSymbol methodSymbol)
@@ -365,202 +465,6 @@ namespace Csanno.Generator
             context.AddSource($"AopRegistration.{assemblyName}.g.cs", sb.ToString());
         }
 
-        private static InstanceLifetime ResolveLifetime(
-            INamedTypeSymbol classSymbol,
-            out string[]? tags,
-            out string? ownedType)
-        {
-            tags = null;
-            ownedType = null;
-
-            var attributes = classSymbol.GetAttributes();
-            var attrNames = new HashSet<string>(attributes.Select(a => a.AttributeClass?.Name).Where(n => n != null)!);
-
-            if (attrNames.Contains("SingletonAttribute"))
-            {
-                return InstanceLifetime.Singleton;
-            }
-
-            var perMatching = attributes.FirstOrDefault(a =>
-                a.AttributeClass?.Name == "PerMatchingLifetimeScopeAttribute");
-            if (perMatching != null)
-            {
-                tags = perMatching.ConstructorArguments
-                    .SelectMany(a => a.Values)
-                    .Select(v => v.Value?.ToString())
-                    .OfType<string>()
-                    .ToArray();
-                return InstanceLifetime.PerMatchingLifetimeScope;
-            }
-
-            if (attrNames.Contains("ScopedAttribute"))
-            {
-                return InstanceLifetime.Scoped;
-            }
-
-            if (attrNames.Contains("PerRequestAttribute"))
-            {
-                return InstanceLifetime.PerRequest;
-            }
-
-            var ownedAttr = attributes.FirstOrDefault(a =>
-                a.AttributeClass?.Name == "OwnedAttribute");
-            if (ownedAttr != null)
-            {
-                var ownedTypeProp = ownedAttr.NamedArguments
-                    .FirstOrDefault(kvp => kvp.Key == "OwnedType");
-                if (ownedTypeProp.Value.Value is INamedTypeSymbol typeSymbol)
-                {
-                    ownedType = typeSymbol.ToDisplayString();
-                }
-                return InstanceLifetime.Owned;
-            }
-
-            if (attrNames.Contains("TransientAttribute"))
-            {
-                return InstanceLifetime.Transient;
-            }
-
-            return InstanceLifetime.Transient;
-        }
-
-        private static List<ServiceInfo> ResolveServiceTypes(INamedTypeSymbol classSymbol)
-        {
-            var services = new List<ServiceInfo>();
-
-            var asServiceAttrs = classSymbol.GetAttributes()
-                .Where(a => a.AttributeClass?.Name == "AsServiceAttribute");
-
-            foreach (var attr in asServiceAttrs)
-            {
-                var serviceType = attr.ConstructorArguments.FirstOrDefault().Value;
-                if (serviceType is INamedTypeSymbol typeSymbol)
-                {
-                    services.Add(new ServiceInfo
-                    {
-                        ServiceType = typeSymbol!.ToDisplayString(),
-                        IsSelf = SymbolEqualityComparer.Default.Equals(typeSymbol, classSymbol)
-                    });
-                }
-            }
-
-            var componentServiceTypes = GetComponentAttributes(classSymbol)
-                .SelectMany(attr => attr.NamedArguments)
-                .Where(kvp => kvp.Key == "ServiceType")
-                .Select(kvp => kvp.Value.Value)
-                .OfType<INamedTypeSymbol>()
-                .Distinct(SymbolEqualityComparer.Default)
-                .ToList();
-            if (componentServiceTypes.Count > 0)
-            {
-                services.Clear();
-                foreach (var typeSymbol in componentServiceTypes)
-                {
-                    var serviceTypeName = typeSymbol?.ToDisplayString();
-                    if (serviceTypeName is null)
-                    {
-                        continue;
-                    }
-
-                    services.Add(new ServiceInfo
-                    {
-                        ServiceType = serviceTypeName,
-                        IsSelf = SymbolEqualityComparer.Default.Equals(typeSymbol, classSymbol)
-                    });
-                }
-                return services;
-            }
-
-            if (services.Count == 0)
-            {
-                services.Add(new ServiceInfo
-                {
-                    ServiceType = classSymbol.ToDisplayString(),
-                    IsSelf = true
-                });
-            }
-
-            return services;
-        }
-
-        private static List<MetadataInfo> ResolveMetadata(INamedTypeSymbol classSymbol)
-        {
-            return classSymbol.GetAttributes()
-                .Where(a => a.AttributeClass?.Name == "WithMetadataAttribute")
-                .Select(attr =>
-                {
-                    var key = attr.ConstructorArguments[0].Value?.ToString() ?? string.Empty;
-                    var value = attr.ConstructorArguments[1];
-
-                    return new MetadataInfo
-                    {
-                        Key = key,
-                        ValueExpression = ConvertToAotFriendlyExpression(value)
-                    };
-                })
-                .ToList();
-        }
-
-        private static string ConvertToAotFriendlyExpression(TypedConstant value)
-        {
-            if (value.Value is null)
-            {
-                return "null";
-            }
-
-            if (value.Type?.TypeKind == TypeKind.Enum)
-            {
-                return $"({value.Type.ToDisplayString()}){Convert.ToString(value.Value, CultureInfo.InvariantCulture)}";
-            }
-
-            if (value.Value is string s)
-            {
-                return SymbolDisplay.FormatLiteral(s, true);
-            }
-
-            if (value.Value is char c)
-            {
-                return SymbolDisplay.FormatLiteral(c, true);
-            }
-
-            if (value.Value is bool b)
-            {
-                return b ? "true" : "false";
-            }
-
-            if (value.Value is int i)
-            {
-                return i.ToString();
-            }
-
-            if (value.Value is long l)
-            {
-                return l.ToString(CultureInfo.InvariantCulture) + "L";
-            }
-
-            if (value.Value is double d)
-            {
-                return d.ToString("R", CultureInfo.InvariantCulture) + "D";
-            }
-
-            if (value.Value is float f)
-            {
-                return f.ToString("R", CultureInfo.InvariantCulture) + "F";
-            }
-
-            if (value.Value is decimal m)
-            {
-                return m.ToString(CultureInfo.InvariantCulture) + "m";
-            }
-
-            if (value.Value is INamedTypeSymbol type)
-            {
-                return $"typeof({type.ToDisplayString()})";
-            }
-
-            return "null";
-        }
-
         private static string GetLifetimeMethod(InstanceLifetime lifetime, ProxyInfo proxy)
         {
             return lifetime switch
@@ -577,69 +481,5 @@ namespace Csanno.Generator
             };
         }
 
-        private static bool HasComponentAttribute(INamedTypeSymbol classSymbol)
-        {
-            if (HasComponentAttributeDirect(classSymbol))
-            {
-                return true;
-            }
-
-            var baseType = classSymbol.BaseType;
-            while (baseType is not null)
-            {
-                if (HasComponentAttributeDirect(baseType))
-                {
-                    return true;
-                }
-                baseType = baseType.BaseType;
-            }
-
-            return false;
-        }
-
-        private static bool HasComponentAttributeDirect(INamedTypeSymbol typeSymbol)
-        {
-            return typeSymbol.GetAttributes().Any(a => IsComponentAttribute(a.AttributeClass));
-        }
-
-        private static IEnumerable<AttributeData> GetComponentAttributes(INamedTypeSymbol classSymbol)
-        {
-            foreach (var attr in classSymbol.GetAttributes())
-            {
-                if (IsComponentAttribute(attr.AttributeClass))
-                {
-                    yield return attr;
-                }
-            }
-
-            var baseType = classSymbol.BaseType;
-            while (baseType is not null)
-            {
-                foreach (var attr in baseType.GetAttributes())
-                {
-                    if (IsComponentAttribute(attr.AttributeClass))
-                    {
-                        yield return attr;
-                    }
-                }
-                baseType = baseType.BaseType;
-            }
-        }
-
-        private static bool IsComponentAttribute(INamedTypeSymbol? attributeType)
-        {
-            var current = attributeType;
-            while (current is not null)
-            {
-                if (current.Name == "ComponentAttribute" &&
-                    (current.ToDisplayString() == "Csanno.Attributes.ComponentAttribute" ||
-                     current.ContainingNamespace.ToDisplayString() == "Csanno.Attributes"))
-                {
-                    return true;
-                }
-                current = current.BaseType;
-            }
-            return false;
-        }
     }
 }
